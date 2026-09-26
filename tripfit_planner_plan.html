@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>트립핏 2차 프로젝트 계획서</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --ink:#17191C; --sub:#555D6B; --mute:#8A919C; --line:#E3E6EA;
+  --soft:#F6F7F9; --code:#F2F3F5; --acc:#0B8A7A; --acc-soft:#E4F4F1; --llm:#5B4FC4; --llm-soft:#EEEDFE; --warn:#C2410C; --warn-soft:#FFF1E8;
+}
+@page{size:A4;margin:0}
+*{box-sizing:border-box}
+body{margin:0;background:#DADDE2;color:var(--ink);
+  font-family:"Pretendard","Pretendard Variable",-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Noto Sans CJK KR","Malgun Gothic",sans-serif;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;word-break:keep-all}
+.page{width:210mm;height:297mm;margin:10mm auto;background:#fff;padding:15mm 16mm 16mm;position:relative;overflow:hidden;
+  font-size:9.2pt;line-height:1.6;box-shadow:0 2px 14px rgba(20,24,30,.14)}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none;break-after:page}}
+@media screen and (max-width:840px){.page{zoom:.46;margin:4mm auto}}
+.hd{display:flex;justify-content:space-between;font-size:7.4pt;color:var(--mute);padding-bottom:2.5mm;border-bottom:1px solid var(--line);margin-bottom:6mm}
+.ft{position:absolute;left:16mm;right:16mm;bottom:8mm;display:flex;justify-content:space-between;font-size:7.4pt;color:var(--mute)}
+h2{font-size:16.5pt;font-weight:800;letter-spacing:-.02em;margin:0 0 1.5mm;display:flex;align-items:baseline;gap:3mm}
+h2 .n{font-size:9.5pt;font-weight:700;color:var(--acc);background:var(--acc-soft);padding:.4mm 2mm;border-radius:1.2mm}
+.lead{color:var(--sub);margin:0 0 5mm}
+h3{font-size:10.6pt;font-weight:700;margin:5.5mm 0 2mm;letter-spacing:-.01em}
+h3:first-of-type{margin-top:0}
+p{margin:0 0 2.2mm}
+ul,ol{margin:0 0 2mm;padding-left:5mm}
+li{margin:.6mm 0}
+table{width:100%;border-collapse:collapse;font-size:8.3pt;line-height:1.5;margin:0 0 2mm}
+th{background:var(--soft);color:var(--sub);font-weight:600;text-align:left;padding:1.6mm 2mm;border-top:1.2px solid var(--ink);border-bottom:1px solid var(--line)}
+td{padding:1.6mm 2mm;border-bottom:1px solid var(--line);vertical-align:top}
+td b{font-weight:650}
+.small td,.small th{font-size:7.9pt;padding:1.3mm 1.8mm}
+.box{background:var(--acc-soft);padding:3mm 3.6mm;border-radius:1.6mm;margin:0 0 3mm}
+.box.warn{background:var(--warn-soft)}
+.box.llm{background:var(--llm-soft)}
+.muted{color:var(--mute);font-size:7.8pt}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+.card{border:1px solid var(--line);border-radius:2mm;padding:3mm 3.5mm}
+.card h4{margin:0 0 1.2mm;font-size:9.4pt}
+.card p,.card ul{font-size:8.4pt;margin:0}
+.tag{display:inline-block;font-size:7.2pt;font-weight:700;padding:.1mm 1.6mm;border-radius:1mm;margin-left:1mm;vertical-align:1px}
+.tag.l{background:var(--llm-soft);color:var(--llm)}
+.tag.c{background:var(--acc-soft);color:var(--acc)}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:3.5mm;margin:0 0 4mm}
+.stat div{border:1px solid var(--line);border-radius:2mm;padding:3mm 3.5mm}
+.stat b{display:block;font-size:17pt;font-weight:800;letter-spacing:-.02em;color:var(--acc);line-height:1.2}
+.stat span{font-size:7.9pt;color:var(--sub)}
+.src{font-size:7.4pt;color:var(--mute);border-top:1px solid var(--line);padding-top:2mm;margin-top:3mm;line-height:1.55}
+.src a{color:var(--acc);text-decoration:none;word-break:break-all}
+.fig{margin:1mm 0 3mm;text-align:center}
+.fig svg{width:100%;height:auto;font-family:inherit}
+.legend{display:flex;gap:5mm;justify-content:center;font-size:7.8pt;color:var(--sub);margin:0 0 3mm}
+.legend i{display:inline-block;width:3mm;height:3mm;border-radius:.6mm;margin-right:1.2mm;vertical-align:-.4mm}
+
+/* cover */
+.meta{width:100%;border-collapse:collapse;font-size:9.2pt;margin:0 0 5mm}
+.meta th{width:26mm;background:var(--soft);color:var(--sub);font-weight:600;border-top:none;border-bottom:1px solid var(--line);padding:2.4mm 3mm}
+.meta td{padding:2.4mm 3mm;border-bottom:1px solid var(--line)}
+.meta tr:first-child th,.meta tr:first-child td{border-top:1.2px solid var(--ink)}
+.title{font-size:30pt;font-weight:800;letter-spacing:-.04em;line-height:1.15;margin:8mm 0 2mm}
+.title small{display:block;font-size:10pt;font-weight:600;color:var(--acc);letter-spacing:0;margin-bottom:2mm}
+.subt{font-size:12pt;color:var(--sub);font-weight:500;margin:0 0 8mm;line-height:1.5}
+.plan{border:1px solid var(--line);border-radius:2mm;padding:3.5mm 4mm;margin:0 0 4mm}
+.plan .in{font-size:8.4pt;color:var(--sub);margin-bottom:2.5mm}
+.stop{display:grid;grid-template-columns:14mm 1fr auto;gap:2mm;align-items:baseline;padding:1.2mm 0;border-top:1px dashed var(--line);font-size:8.8pt}
+.stop:first-of-type{border-top:none}
+.stop b{font-weight:700}
+.stop span{color:var(--mute);font-size:7.8pt}
+.score{display:flex;gap:2mm;flex-wrap:wrap;margin-top:2.5mm}
+.score span{font-size:7.6pt;background:var(--soft);border-radius:1mm;padding:.4mm 2mm;color:var(--sub)}
+.score span.t{background:var(--acc-soft);color:var(--acc);font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- 1. 표지 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>2026년 09월 28일</span></div>
+  <div class="title"><small>경기 AI 멤버십 채용연계형 교육 · 2차 프로젝트</small>트립핏</div>
+  <p class="subt">취향을 말하면 부산 하루 여행 일정을 짜주는 AI 여행 플래너.<br>QLoRA로 학습한 LLM이 일정을 제안하고, 규칙 코드가 검증하고 채점합니다.</p>
+
+  <table class="meta">
+    <tr><th>과정명</th><td>경기 AI 멤버십 채용연계형 교육</td></tr>
+    <tr><th>팀명</th><td>소방서</td></tr>
+    <tr><th>팀장</th><td>최정민</td></tr>
+    <tr><th>팀원</th><td>김나경, 남상기, 윤아영, 이건호</td></tr>
+    <tr><th>개발 기간</th><td>2026년 9월 28일(월) ~ 9월 30일(수), 3일</td></tr>
+  </table>
+
+  <h3>프로젝트 주제</h3>
+  <p><b>지역 특화 AI 여행 플래너.</b> 사용자가 버튼과 한두 문장으로 취향을 알려주면, QLoRA로 학습한 8B LLM이 부산의 후보 장소 안에서 하루 일정(방문지 4~6곳)을 만들고, 규칙 기반 평가기가 동선·시간·여행 속도·취향 적합도를 채점해 가장 좋은 일정을 점수와 주의점과 함께 보여줍니다.</p>
+
+  <h3>결과 화면 예시</h3>
+  <div class="plan">
+    <div class="in">입력: 가족 여행 · 여유롭게 · 많이 걷기 어려움 · "부모님과 바다 보면서 쉬고 싶어요"</div>
+    <div class="stop"><b>10:00</b><div>해운대 해수욕장</div><span>자연 · 90분</span></div>
+    <div class="stop"><b>12:00</b><div>해운대 인근 국밥집</div><span>식사 · 도보 8분</span></div>
+    <div class="stop"><b>14:00</b><div>동백섬 산책로</div><span>자연 · 차량 6분</span></div>
+    <div class="stop"><b>16:00</b><div>바다 전망 카페</div><span>카페 · 차량 9분</span></div>
+    <div class="score"><span class="t">총점 82</span><span>취향 88</span><span>동선 79</span><span>시간 85</span><span>속도 80</span><span>다양성 74</span></div>
+  </div>
+
+  <h3>핵심 타겟</h3>
+  <ul>
+    <li>부산 여행을 앞두고 어디를 어떤 순서로 갈지 정하기 어려운 국내 자유여행자</li>
+    <li>부모님·아이 동반처럼 걷는 양, 이동 시간, 일정 여유가 중요한 가족 여행자</li>
+    <li>여러 블로그와 지도 앱을 오가며 동선을 직접 맞추는 데 지친 사용자</li>
+  </ul>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>1</span></div>
+</section>
+
+<!-- 2. 목적 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>프로젝트 목적</span></div>
+  <h2><span class="n">1</span>프로젝트 목적 (동기)</h2>
+  <p class="lead">좋은 장소를 모아도 좋은 일정이 되지는 않습니다. 동선, 영업시간, 여행 속도까지 맞춰야 합니다.</p>
+
+  <h3>문제 상황</h3>
+  <p>여행지를 정한 뒤에도 "하루에 어디를 어떤 순서로 갈지"를 정하는 일은 여전히 여행자의 몫입니다. 인기 장소 목록은 쉽게 찾을 수 있지만, 장소 사이 이동 시간, 영업시간, 동행자의 체력, 원하는 여행 속도까지 맞춘 일정을 만들려면 여러 블로그와 지도 앱을 오가며 직접 계산해야 합니다. 범용 AI에게 일정을 부탁해도 이동이 비현실적으로 길거나 문 닫은 시간에 방문하는 일정이 나오기 쉽습니다.</p>
+
+  <h3>근거 자료</h3>
+  <div class="stat">
+    <div><b>10명 중 7명</b><span>2025년 상반기 국내여행 계획<br>선호 지역: 강원·제주·부산</span></div>
+    <div><b>64%</b><span>휴가 계획이 시간이 많이<br>걸린다고 답한 MZ 여행자</span></div>
+    <div><b>취향 맞춤</b><span>2025년 여행 트렌드의 핵심,<br>AI 여행 비서 활용 확대</span></div>
+  </div>
+
+  <table>
+    <tr><th style="width:24%">구분</th><th>내용</th></tr>
+    <tr><td><b>국내여행 수요</b></td><td>한국리서치 조사에서 10명 중 7명이 2025년 상반기 국내여행을 계획했고, 평균 여행 기간은 4일이며 강원도, 제주도, 부산 등을 선호했습니다.<sup>①</sup></td></tr>
+    <tr><td><b>계획의 부담</b></td><td>Leger 조사에서 Z세대와 밀레니얼 여행자의 64%가 휴가 계획이 시간이 많이 걸린다고, 58%가 스트레스를 받는다고 답했습니다.<sup>②</sup></td></tr>
+    <tr><td><b>취향 맞춤과 AI</b></td><td>국내 여행사들은 2025년 여행 트렌드로 취향 맞춤 여행과 AI 여행 비서의 확대를 꼽았고, 여행자들이 실제 후기를 기준으로 삼으면서도 후기 탐색에 많은 피로를 겪는다고 분석했습니다.<sup>③</sup></td></tr>
+    <tr><td><b>자유여행 확대</b></td><td>여행객이 호텔, 교통, 관광지, 액티비티를 직접 구매하는 비율이 높아지면서 개별자유여행객이 크게 늘었습니다.<sup>④</sup></td></tr>
+  </table>
+
+  <div class="box warn"><b>시사점.</b> 여행자에게 필요한 것은 장소 목록이 아니라, 동선·시간·여행 속도·동행자 조건까지 <b>검증된 하루 일정</b>입니다.</div>
+
+  <h3>프로젝트 목표</h3>
+  <table>
+    <tr><th style="width:18%">구분</th><th>목표</th></tr>
+    <tr><td><b>서비스</b></td><td>취향 입력 → 일정 생성 → 점수·주의점 표시가 끝까지 동작하는 웹 데모</td></tr>
+    <tr><td><b>학습</b></td><td>같은 시험 프로필에서 QLoRA로 학습한 Planner가 학습 전 Base 모델보다 좋은 일정을 만든다는 것을 수치와 사람 평가로 증명</td></tr>
+  </table>
+
+  <div class="src">
+    ① 한국리서치, 「[기획] 2025년 상반기 여행계획」, 2024.12 조사<br>
+    　<a href="https://hrcopinion.co.kr/archives/31869">https://hrcopinion.co.kr/archives/31869</a><br>
+    ② Leger 미국 여행자 AI 계획 도구 조사 (Jenova, 「AI 여행 플래너」 재인용), 2026<br>
+    　<a href="https://www.jenova.ai/ko/resources/ai-travel-planner-202605">https://www.jenova.ai/ko/resources/ai-travel-planner-202605</a><br>
+    ③ 여행신문, 「2025년 여행 트렌드 | '취향 맞춤'의 '새로운' 여행」 (노랑풍선·하나투어), 2024<br>
+    　<a href="https://www.traveltimes.co.kr/news/articleView.html?idxno=410287">https://www.traveltimes.co.kr/news/articleView.html?idxno=410287</a><br>
+    ④ 여행신문, 「[여행 생태계는 지금] 여행사: 패키지와 자유여행 사이」, 2024<br>
+    　<a href="https://www.traveltimes.co.kr/news/articleView.html?idxno=408888">https://www.traveltimes.co.kr/news/articleView.html?idxno=408888</a>
+  </div>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>2</span></div>
+</section>
+
+<!-- 3. 시스템 설계 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>시스템 설계</span></div>
+  <h2><span class="n">2</span>서비스 흐름과 시스템 설계</h2>
+  <p class="lead">LLM은 이해하고 제안하고, 코드는 계산하고 검증하고 채점합니다.</p>
+
+  <div class="legend"><span><i style="background:#EEEDFE;border:1px solid #534AB7"></i>LLM (학습 대상)</span><span><i style="background:#E1F5EE;border:1px solid #0F6E56"></i>규칙 코드</span><span><i style="background:#F6F7F9;border:1px solid #B4B2A9"></i>화면 · 데이터</span></div>
+  <div class="fig">
+  <svg viewBox="0 0 680 506" xmlns="http://www.w3.org/2000/svg" style="max-width:172mm">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8A919C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+    <g font-size="14" text-anchor="middle" dominant-baseline="central">
+      <rect x="230" y="0" width="220" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="340" y="20" font-weight="700" fill="#17191C">웹 화면</text><text x="340" y="40" font-size="12" fill="#555D6B">칩 + 한두 문장 입력</text>
+      <rect x="230" y="82" width="220" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7"/><text x="340" y="102" font-weight="700" fill="#3C3489">취향 정리</text><text x="340" y="122" font-size="12" fill="#534AB7">문장 → 취향 JSON</text>
+      <rect x="230" y="164" width="220" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/><text x="340" y="184" font-weight="700" fill="#085041">후보 선정 (Model 1)</text><text x="340" y="204" font-size="12" fill="#0F6E56">구역·필터 → 후보 12곳</text>
+      <rect x="230" y="246" width="220" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7"/><text x="340" y="266" font-weight="700" fill="#3C3489">일정 생성 (Planner)</text><text x="340" y="286" font-size="12" fill="#534AB7">일정 4개 샘플링</text>
+      <rect x="230" y="328" width="220" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/><text x="340" y="348" font-weight="700" fill="#085041">검증 · 채점 (Model 2)</text><text x="340" y="368" font-size="12" fill="#0F6E56">최고점 일정 선택</text>
+      <rect x="230" y="410" width="220" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="340" y="430" font-weight="700" fill="#17191C">결과 화면</text><text x="340" y="450" font-size="12" fill="#555D6B">일정 · 점수 · 주의점</text>
+      <rect x="40" y="82" width="150" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="115" y="102" font-weight="700" fill="#17191C">Tour API</text><text x="115" y="122" font-size="12" fill="#555D6B">처음에 1회 수집</text>
+      <rect x="40" y="164" width="150" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="115" y="184" font-weight="700" fill="#17191C">장소 DB</text><text x="115" y="204" font-size="12" fill="#555D6B">부산 약 500곳</text>
+      <rect x="40" y="328" width="150" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/><text x="115" y="348" font-weight="700" fill="#085041">규칙 탐색</text><text x="115" y="368" font-size="12" fill="#0F6E56">LLM 실패 시 대체</text>
+      <rect x="490" y="82" width="150" height="220" rx="8" fill="#EEEDFE" stroke="#534AB7"/><text x="565" y="156" font-weight="700" fill="#3C3489">LLM 서버</text><text x="565" y="182" font-size="12" fill="#534AB7">Base 8B (4bit)</text><text x="565" y="204" font-size="12" fill="#534AB7">+ 취향 어댑터</text><text x="565" y="226" font-size="12" fill="#534AB7">+ 일정 어댑터</text>
+    </g>
+    <g stroke="#8A919C" stroke-width="1.2" fill="none">
+      <line x1="340" y1="56" x2="340" y2="80" marker-end="url(#ar)"/>
+      <line x1="340" y1="138" x2="340" y2="162" marker-end="url(#ar)"/>
+      <line x1="340" y1="220" x2="340" y2="244" marker-end="url(#ar)"/>
+      <line x1="340" y1="302" x2="340" y2="326" marker-end="url(#ar)"/>
+      <line x1="340" y1="384" x2="340" y2="408" marker-end="url(#ar)"/>
+      <line x1="115" y1="138" x2="115" y2="162" marker-end="url(#ar)"/>
+      <line x1="190" y1="192" x2="228" y2="192" marker-end="url(#ar)"/>
+      <line x1="190" y1="356" x2="228" y2="356" marker-end="url(#ar)"/>
+      <line x1="452" y1="110" x2="488" y2="110" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <line x1="452" y1="274" x2="488" y2="274" marker-start="url(#ar)" marker-end="url(#ar)"/>
+    </g>
+  </svg>
+  </div>
+
+  <table class="small">
+    <tr><th style="width:24%">단계</th><th>하는 일</th></tr>
+    <tr><td><b>취향 정리</b> <span class="tag l">LLM</span></td><td>칩 값(동행, 예산, 식이 제한, 여행 속도)은 그대로 쓰고, 문장에서 관심사와 걷기 부담을 추출해요. 칩 값이 우선이에요.</td></tr>
+    <tr><td><b>후보 선정</b> <span class="tag c">코드</span></td><td>취향에 맞는 구역을 고르고, 식이 제한·예산에 안 맞는 곳을 뺀 뒤 점수 상위 12곳과 이동시간표를 만들어요.</td></tr>
+    <tr><td><b>일정 생성</b> <span class="tag l">LLM</span></td><td>후보 12곳 안에서만 방문지와 시간을 골라 일정 4개를 만들어요.</td></tr>
+    <tr><td><b>검증 · 채점</b> <span class="tag c">코드</span></td><td>형식, 후보 밖 장소, 중복을 검사하고 통과한 일정을 채점해 최고점을 골라요. 모두 실패하면 규칙 탐색 일정을 써요.</td></tr>
+  </table>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>3</span></div>
+</section>
+
+<!-- 4. 수행 방향 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>프로젝트 수행 방향</span></div>
+  <h2><span class="n">3</span>프로젝트 수행 방향</h2>
+  <p class="lead">학습까지 가는 흐름과 서비스 개발을 나란히 진행합니다.</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 680 576" xmlns="http://www.w3.org/2000/svg" style="max-width:150mm">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8A919C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+    <g font-size="14" text-anchor="middle" dominant-baseline="central">
+      <rect x="40" y="0" width="360" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="220" y="20" font-weight="700" fill="#17191C">1. 인터페이스 확정</text><text x="220" y="40" font-size="12" fill="#555D6B">데이터 모양 · 지역 · GPU</text>
+      <rect x="40" y="80" width="360" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="220" y="100" font-weight="700" fill="#17191C">2. 장소 데이터</text><text x="220" y="120" font-size="12" fill="#555D6B">Tour API 수집 · AI 특징 태깅</text>
+      <rect x="40" y="160" width="360" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="220" y="180" font-weight="700" fill="#17191C">3. 규칙 코드</text><text x="220" y="200" font-size="12" fill="#555D6B">후보 선정 · 채점 · 규칙 탐색</text>
+      <rect x="40" y="240" width="360" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="220" y="260" font-weight="700" fill="#17191C">4. 채점 검증</text><text x="220" y="280" font-size="12" fill="#555D6B">관광공사 코스 · 사람 순위와 비교</text>
+      <rect x="40" y="320" width="360" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7"/><text x="220" y="340" font-weight="700" fill="#3C3489">5. 학습 데이터 생성</text><text x="220" y="360" font-size="12" fill="#534AB7">일정 대량 생성 · 채점 · 1등 선별</text>
+      <rect x="40" y="400" width="360" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7"/><text x="220" y="420" font-weight="700" fill="#3C3489">6. QLoRA 학습</text><text x="220" y="440" font-size="12" fill="#534AB7">취향 어댑터 → 일정 SFT → DPO</text>
+      <rect x="40" y="480" width="360" height="56" rx="8" fill="#F6F7F9" stroke="#B4B2A9"/><text x="220" y="500" font-weight="700" fill="#17191C">7. 평가</text><text x="220" y="520" font-size="12" fill="#555D6B">학습 전후 점수 · 사람 블라인드 비교</text>
+      <text x="540" y="24" font-weight="700" fill="#17191C">서비스 개발 (병행)</text>
+      <rect x="460" y="96" width="160" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/><text x="540" y="116" font-weight="700" fill="#085041">Base로 먼저 연결</text><text x="540" y="136" font-size="12" fill="#0F6E56">화면 · API 완성</text>
+      <rect x="460" y="400" width="160" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/><text x="540" y="420" font-weight="700" fill="#085041">튜닝 모델 교체</text><text x="540" y="440" font-size="12" fill="#0F6E56">데모 준비</text>
+    </g>
+    <rect x="440" y="0" width="200" height="536" rx="12" fill="none" stroke="#B4B2A9" stroke-width="0.8" stroke-dasharray="5 4"/>
+    <g stroke="#8A919C" stroke-width="1.2" fill="none">
+      <line x1="220" y1="56" x2="220" y2="78" marker-end="url(#ar2)"/>
+      <line x1="220" y1="136" x2="220" y2="158" marker-end="url(#ar2)"/>
+      <line x1="220" y1="216" x2="220" y2="238" marker-end="url(#ar2)"/>
+      <line x1="220" y1="296" x2="220" y2="318" marker-end="url(#ar2)"/>
+      <line x1="220" y1="376" x2="220" y2="398" marker-end="url(#ar2)"/>
+      <line x1="220" y1="456" x2="220" y2="478" marker-end="url(#ar2)"/>
+      <line x1="540" y1="152" x2="540" y2="398" marker-end="url(#ar2)"/>
+      <line x1="400" y1="428" x2="458" y2="428" marker-end="url(#ar2)"/>
+    </g>
+  </svg>
+  </div>
+
+  <h3>수행 원칙</h3>
+  <div class="g2">
+    <div class="card"><h4>모양부터 정하고 동시에 시작</h4><p>취향, 장소, 후보, 일정, 채점 결과의 JSON 모양을 첫날 오전에 정하고, 앞 단계가 끝나기 전에도 가짜 데이터로 각자 개발합니다.</p></div>
+    <div class="card"><h4>Base 모델로 먼저 끝까지 연결</h4><p>학습 전 모델로 화면부터 결과까지 먼저 동작시키고, 학습이 끝나면 어댑터만 교체합니다. 학습이 늦어져도 데모는 항상 가능합니다.</p></div>
+    <div class="card"><h4>작게 돌려보고 크게 돌리기</h4><p>데이터 생성과 학습 모두 10개로 먼저 실행해 오류를 확인한 뒤 전체를 실행합니다.</p></div>
+    <div class="card"><h4>명령어 하나로 다시 만들기</h4><p>장소 수집부터 학습 데이터 선별까지 한 번에 다시 돌릴 수 있게 스크립트로 만들어, 채점 기준을 고쳐도 빠르게 재생성합니다.</p></div>
+  </div>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>4</span></div>
+</section>
+
+<!-- 5. 일정 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>개발 일정</span></div>
+  <h2>개발 일정</h2>
+  <p class="lead">핵심 경로는 채점 검증 → 학습 데이터 생성 → QLoRA 학습입니다. 이 구간이 밀리면 평가와 데모가 모두 밀립니다.</p>
+
+  <table>
+    <tr><th style="width:13%">일차</th><th>해야 할 일</th><th style="width:24%">완료 기준</th></tr>
+    <tr><td><b>9/28 (월)</b><br><span class="muted">데이터·기반</span></td><td>지역·구역·JSON 모양 확정 · Tour API로 부산 장소 수집, 영업시간 변환, AI 특징 태깅과 사람 검수 · 후보 선정·채점·규칙 탐색·검증기 완성 · 관광공사 코스와 사람 순위로 채점 검증 · 취향 프로필 450개(시험용 50개 고정)와 취향 문장 데이터 생성 · 일정 대량 생성, 채점, 1등 선별과 DPO 쌍 구성</td><td><b>학습 데이터 확정</b></td></tr>
+    <tr><td><b>9/29 (화)</b><br><span class="muted">학습·통합</span></td><td><b>취향 어댑터 SFT 학습</b> · <b>일정 어댑터 SFT 학습</b> · <b>일정 어댑터 DPO 학습</b>(여유 시) · Base 모델로 화면부터 결과까지 전체 흐름 연결 · 학습 끝난 어댑터로 교체</td><td>어댑터 학습 완료, 데모 동작</td></tr>
+    <tr><td><b>9/30 (수)</b><br><span class="muted">평가·마무리</span></td><td>시험 프로필 50개로 학습 전후 평가 · 취향 시험 문장 평가 · 사람 블라인드 비교 20쌍 · 결과표 정리 · 데모 리허설, 발표 자료</td><td>최종 발표</td></tr>
+  </table>
+
+  <h3>위험과 대응</h3>
+  <table class="small">
+    <tr><th style="width:26%">위험</th><th style="width:24%">신호</th><th>대응</th></tr>
+    <tr><td>GPU 확보 실패</td><td>사전 점검에서 4bit 로드 실패</td><td>개발 시작 전 클라우드 GPU로 전환</td></tr>
+    <tr><td>채점 코드가 사람 판단과 불일치</td><td>순위 상관 0.6 미만, 관광공사 코스 저득점</td><td>9/28 안에 점수 비중 1회 수정 후 재계산</td></tr>
+    <tr><td>학습 데이터 부족</td><td>선별 결과 300개 미만</td><td>기준을 총점 70으로 낮추고, 부족하면 프로필 추가 생성</td></tr>
+    <tr><td>정답이 규칙 탐색에 쏠림</td><td>탐색 출신 비율이 과반</td><td>Base 모델 생성 횟수를 늘려 균형 조정</td></tr>
+    <tr><td>학습 중 메모리 부족</td><td>OOM 오류</td><td>배치 1 × 누적 16으로 변경</td></tr>
+    <tr><td>통합 지연</td><td>9/29까지 전체 흐름 미동작</td><td>Base 모델 버전으로 데모, 학습 결과는 결과표로 제시</td></tr>
+  </table>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>5</span></div>
+</section>
+
+<!-- 6. 필수 기능 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>필수 기능</span></div>
+  <h2><span class="n">4</span>필수 기능 (MVP)</h2>
+  <p class="lead">부산 하루 일정(방문지 4~6곳)을 끝까지 만들어 보여주는 것이 MVP입니다.</p>
+
+  <table>
+    <tr><th style="width:21%">기능</th><th>설명</th><th style="width:13%">처리</th></tr>
+    <tr><td><b>취향 입력</b></td><td>동행, 예산, 식이 제한, 여행 속도는 선택형 칩으로 받고, 칩으로 표현하기 어려운 내용은 한두 문장으로 받아요.</td><td>화면</td></tr>
+    <tr><td><b>취향 정리</b></td><td>"부모님이 무릎이 안 좋으셔서"처럼 돌려 말한 문장에서도 걷기 부담과 관심사를 뽑아 구조화해요. 실패하면 칩 값만으로 진행해요.</td><td><span class="tag l">LLM</span></td></tr>
+    <tr><td><b>구역 선택</b></td><td>"광안리 쪽"처럼 지역을 말하면 그 구역에서, 부산 전체로 말하면 취향에 가장 맞는 구역에서 후보를 찾아요.</td><td><span class="tag c">코드</span></td></tr>
+    <tr><td><b>후보 선정</b></td><td>조건에 안 맞는 장소를 빼고 점수 상위 12곳(음식점 3곳 이상)과 장소 간 이동시간표를 만들어요.</td><td><span class="tag c">코드</span></td></tr>
+    <tr><td><b>일정 생성</b></td><td>후보 안에서 방문지와 시작 시각을 정해요. 여행 속도에 따라 여유 4곳, 보통 5곳, 빡빡 6곳이에요.</td><td><span class="tag l">LLM</span></td></tr>
+    <tr><td><b>검증 · 채점</b></td><td>형식·후보·중복을 검사하고 취향, 동선, 시간, 속도, 다양성을 100점으로 채점해 최고점을 골라요.</td><td><span class="tag c">코드</span></td></tr>
+    <tr><td><b>대체 일정</b></td><td>LLM 일정이 모두 검증에 실패하면 규칙 탐색 일정을 보여줘 서비스가 멈추지 않아요.</td><td><span class="tag c">코드</span></td></tr>
+    <tr><td><b>결과 표시</b></td><td>일정, 지도, 항목별 점수, "A에서 B까지 이동이 45분으로 길어요" 같은 주의점을 보여줘요.</td><td>화면</td></tr>
+  </table>
+
+  <h3>화면 구성</h3>
+  <table class="small">
+    <tr><th style="width:21%">화면</th><th>구성</th></tr>
+    <tr><td><b>취향 입력</b></td><td>동행·예산·식이 제한·여행 속도 칩, 자유 문장 입력, 지역(부산 전체 또는 구역) 선택</td></tr>
+    <tr><td><b>일정 결과</b></td><td>시간순 방문지 카드, 지도 위 동선, 총점과 항목별 점수 막대</td></tr>
+    <tr><td><b>주의점</b></td><td>긴 이동, 영업시간 문제, 여행 속도 초과 등을 문장으로 표시</td></tr>
+    <tr><td><b>장소 상세</b></td><td>소개글, 영업시간, 추천 이유(점수 기여 항목)</td></tr>
+  </table>
+
+  <h3>이번 범위</h3>
+  <div class="g2">
+    <div class="card"><h4>만드는 것</h4><ul><li>부산 전체 장소 기반 하루 일정</li><li>QLoRA 어댑터 2개 (취향 정리, 일정 생성)</li><li>일정 어댑터 DPO 추가 학습</li><li>텍스트 입력, 템플릿 주의점</li><li>직선거리 기반 이동시간</li></ul></div>
+    <div class="card"><h4>만들지 않는 것</h4><ul><li>여러 날 일정, 숙소·교통 예약</li><li>음성 입력</li><li>LLM 기반 설명 생성</li><li>지도 API 기반 실제 이동시간</li><li>부산 외 지역</li></ul></div>
+  </div>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>6</span></div>
+</section>
+
+<!-- 7. 데이터 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>데이터 수집 계획</span></div>
+  <h2><span class="n">5</span>데이터 수집 계획</h2>
+  <p class="lead">장소는 공공데이터로 모으고, 학습 데이터는 코드와 LLM으로 직접 만들어 규칙 평가기로 선별합니다.</p>
+
+  <h3>데이터 구성</h3>
+  <table class="small">
+    <tr><th style="width:18%">데이터</th><th style="width:15%">규모</th><th>만드는 방법</th><th style="width:15%">용도</th></tr>
+    <tr><td><b>부산 장소</b></td><td>약 500곳</td><td>Tour API에서 관광지·문화시설·음식점·카페의 목록, 좌표, 소개글, 영업시간·휴무일 수집</td><td>후보 선정</td></tr>
+    <tr><td><b>장소 특징</b></td><td>500곳 × 7속성</td><td>소개글을 LLM이 읽고 자연·음식·문화·쇼핑·걷기 부담·혼잡도·실내 여부를 0 / 0.5 / 1로 자동 태깅</td><td>후보 점수</td></tr>
+    <tr><td><b>태깅 검수</b></td><td>60곳</td><td>팀원이 기준표로 직접 태깅해 자동 태깅 정확도 확인</td><td>품질 확인</td></tr>
+    <tr><td><b>관광공사 여행 코스</b></td><td>부산 코스 전체</td><td>Tour API 여행 코스(가족·나홀로·힐링·도보·맛코스) 수집</td><td>채점 검증, 예시</td></tr>
+    <tr><td><b>취향 프로필</b></td><td>450개</td><td>취향 값을 코드로 조합. 여행 속도 3종 × 걷기 부담 3종 균등 배분. 50개는 시험용으로 먼저 고정</td><td>학습·평가 입력</td></tr>
+    <tr><td><b>취향 문장</b></td><td>약 2,000쌍</td><td>프로필을 먼저 정하고 LLM이 그 취향을 말하는 직접·간접·부정 표현 문장 생성</td><td>취향 어댑터 학습</td></tr>
+    <tr><td><b>일정 원본</b></td><td>2,000개</td><td>학습 프로필 400개마다 Base 모델 일정 4개 + 규칙 탐색 일정 1개 생성 후 채점</td><td>선별 재료</td></tr>
+    <tr><td><b>일정 정답</b></td><td>300~400개</td><td>프로필별 최고점 1개, 총점 75 이상 · 위반 0건만 채택</td><td>일정 SFT 학습</td></tr>
+    <tr><td><b>비교 쌍</b></td><td>300~400쌍</td><td>같은 프로필의 최고점 일정과 최저점 일정을 짝지음</td><td>일정 DPO 학습</td></tr>
+    <tr><td><b>채점 검증 세트</b></td><td>20세트 × 3개</td><td>품질이 다른 일정 3개를 팀원 2명씩 순위 매김</td><td>채점 검증</td></tr>
+    <tr><td><b>취향 시험 문장</b></td><td>30개</td><td>팀원이 직접 작성한 직접·간접·부정 표현</td><td>취향 평가</td></tr>
+    <tr><td><b>블라인드 비교</b></td><td>20쌍</td><td>학습 전 일정 vs 학습 후 일정, 출처를 가리고 사람이 선택</td><td>최종 평가</td></tr>
+  </table>
+
+  <h3>학습 데이터 만드는 원리</h3>
+  <div class="box llm">AI가 같은 문제를 여러 번 풀고 → 규칙 채점기가 1등을 뽑고 → 그 1등을 정답으로 AI가 다시 공부합니다. 그래서 학습 후에는 한 번에 짜도 여러 번 시도한 것 중 가장 좋은 수준의 일정이 나오도록 만듭니다.</div>
+
+  <h3>유의사항</h3>
+  <ul>
+    <li>시험용 프로필 50개는 처음에 떼어 두고 학습 데이터에 절대 섞지 않습니다.</li>
+    <li>장소 특징은 0 / 0.5 / 1 세 단계로만 표기해 기준 흔들림을 줄이고, 첫날 5곳을 전원이 함께 태깅해 기준을 맞춥니다.</li>
+    <li>Tour API 데이터의 이용허락 조건을 확인하고, 화면에 출처를 표시합니다.</li>
+    <li>정답이 Base 모델 출신인지 규칙 탐색 출신인지 비율을 기록해 한쪽 쏠림을 확인합니다.</li>
+  </ul>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>7</span></div>
+</section>
+
+<!-- 8. 도구 + 핵심 기술 1 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>수행 도구와 핵심 기술</span></div>
+  <h2><span class="n">6</span>프로젝트 수행 도구</h2>
+  <p class="lead">학습은 GPU 환경에서, 서비스는 하나의 Base 모델에 어댑터를 바꿔 끼워 동작합니다.</p>
+
+  <table>
+    <tr><th style="width:18%">구분</th><th>도구</th></tr>
+    <tr><td><b>frontend</b></td><td>Next.js, TypeScript, Tailwind CSS, 지도 표시 라이브러리</td></tr>
+    <tr><td><b>backend</b></td><td>FastAPI (Python)</td></tr>
+    <tr><td><b>DB</b></td><td>PostgreSQL (장소, 특징, 이동시간)</td></tr>
+    <tr><td><b>AI 모델</b></td><td>Qwen 계열 8B Instruct (4bit), QLoRA 어댑터 2개</td></tr>
+    <tr><td><b>학습</b></td><td>Hugging Face Transformers, PEFT, TRL (SFT, DPO), bitsandbytes</td></tr>
+    <tr><td><b>추론</b></td><td>vLLM (배치 생성, 어댑터 교체 서빙)</td></tr>
+    <tr><td><b>데이터</b></td><td>한국관광공사 Tour API</td></tr>
+    <tr><td><b>개발 OS</b></td><td>Windows 10 (학습은 24GB 이상 GPU의 Linux 환경)</td></tr>
+    <tr><td><b>배포</b></td><td>프론트엔드 Vercel, 백엔드·LLM은 GPU 서버에서 시연</td></tr>
+  </table>
+
+  <h2 style="margin-top:7mm"><span class="n">7</span>핵심 기술</h2>
+  <h3>① QLoRA 3단계 학습</h3>
+  <p>Base 8B 모델의 가중치는 고정하고, 4bit로 올린 모델에 작은 LoRA 어댑터만 붙여 학습합니다. 세 번 학습합니다.</p>
+  <table class="small">
+    <tr><th style="width:22%">학습</th><th style="width:30%">데이터</th><th>배우는 것</th></tr>
+    <tr><td><b>취향 어댑터</b> <span class="tag l">SFT</span></td><td>문장 → 취향 JSON 약 2,000쌍</td><td>돌려 말한 표현까지 관심사와 걷기 부담으로 정리하기</td></tr>
+    <tr><td><b>일정 어댑터 1차</b> <span class="tag l">SFT</span></td><td>취향 + 후보 → 1등 일정 300~400개</td><td>좋은 장소의 합이 아니라, 동선·시간·속도까지 맞춘 좋은 일정 짜기</td></tr>
+    <tr><td><b>일정 어댑터 2차</b> <span class="tag l">DPO</span></td><td>1등 일정 vs 최저점 일정 300~400쌍</td><td>좋은 일정과 나쁜 일정을 구별해 더 좋은 쪽으로 기울기</td></tr>
+  </table>
+
+  <h3>학습 설정 (출발값)</h3>
+  <table class="small">
+    <tr><th style="width:30%">항목</th><th>값</th></tr>
+    <tr><td>양자화</td><td>4bit NF4, 이중 양자화, 연산 bf16</td></tr>
+    <tr><td>LoRA r / alpha / dropout</td><td>16 / 32 / 0.05, 어텐션과 MLP 전체 층</td></tr>
+    <tr><td>학습률</td><td>2e-4, cosine, 워밍업 3% (DPO는 더 낮게)</td></tr>
+    <tr><td>에폭 · 배치</td><td>3 에폭, 기기당 2 × 누적 8 = 16</td></tr>
+    <tr><td>최대 길이</td><td>2,048 토큰 (후보 12곳 + 이동시간표가 들어가도록 설계)</td></tr>
+    <tr><td>손실</td><td>응답 부분에만 적용해 입력을 외우지 않고 좋은 출력을 내는 법을 학습</td></tr>
+  </table>
+  <p class="muted">위 값은 출발값이며, 사전 시험 학습으로 메모리와 시간을 실측해 조정합니다.</p>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>8</span></div>
+</section>
+
+<!-- 9. 핵심 기술 2 -->
+<section class="page">
+  <div class="hd"><span>2차 프로젝트 계획서</span><span>핵심 기술</span></div>
+
+  <h3>② 규칙 기반 평가기로 학습 데이터 선별</h3>
+  <p>사람이 일정 수백 개를 채점할 수 없기 때문에, 좋은 일정의 조건을 규칙으로 만든 평가기(Model 2)가 모든 일정을 채점하고 그 점수로 학습 데이터를 고릅니다.</p>
+  <table class="small">
+    <tr><th style="width:22%">항목</th><th>계산</th><th style="width:12%">비중</th></tr>
+    <tr><td><b>취향 적합도</b></td><td>방문지들의 후보 점수 평균</td><td>35%</td></tr>
+    <tr><td><b>동선 효율</b></td><td>총 이동시간, 30분 넘는 구간 감점</td><td>20%</td></tr>
+    <tr><td><b>시간 타당성</b></td><td>이동 + 체류 + 식사 합계, 영업시간 위반 감점</td><td>20%</td></tr>
+    <tr><td><b>여행 속도</b></td><td>방문지 수와 이동량이 원하는 속도와 맞는지</td><td>15%</td></tr>
+    <tr><td><b>다양성</b></td><td>같은 종류 3곳 이상 연속 시 감점</td><td>10%</td></tr>
+  </table>
+  <p>평가기를 믿을 수 있는지는 두 가지로 확인합니다. <b>관광공사가 만든 부산 여행 코스</b>가 높은 점수를 받는지, 그리고 <b>팀원이 매긴 순위</b>와 평가기 순위가 비슷한지(순위 상관 0.6 이상)입니다.</p>
+
+  <h3>③ LLM 출력 검증과 서비스 안정성</h3>
+  <ul>
+    <li>LLM 출력은 JSON 파싱 → 형식 검사 → 후보 안의 장소인지 → 중복 방문 없는지를 통과해야 채점합니다.</li>
+    <li>LLM은 후보 12곳의 ID만 사용하고, 이동시간과 점수 같은 수치는 코드가 계산합니다.</li>
+    <li>유효한 LLM 일정이 없으면 규칙 탐색 일정을 반환해 서비스가 멈추지 않습니다.</li>
+    <li>하나의 Base 모델에 어댑터 두 개를 요청마다 바꿔 끼워 GPU 한 장으로 서빙합니다.</li>
+  </ul>
+
+  <h3>④ 평가 체계</h3>
+  <p>시험용 프로필 50개에서 샘플 1개 기준으로 비교합니다.</p>
+  <table class="small">
+    <tr><th style="width:26%">조건</th><th>평가기 평균 총점</th><th>위반률</th><th>형식 통과율</th><th>후보 밖 장소</th><th>사람 선호</th></tr>
+    <tr><td>규칙 탐색 (기준선)</td><td></td><td></td><td></td><td></td><td>해당 없음</td></tr>
+    <tr><td>Base 8B</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>Base 8B + SFT</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>Base 8B + SFT + DPO</td><td></td><td></td><td></td><td></td><td></td></tr>
+  </table>
+  <table class="small">
+    <tr><th style="width:30%">지표</th><th>목표 (초안)</th></tr>
+    <tr><td>평가기 평균 총점</td><td>SFT &gt; Base, SFT + DPO ≥ SFT</td></tr>
+    <tr><td>위반률</td><td>학습 후 &lt; Base</td></tr>
+    <tr><td>형식 통과율</td><td>98% 이상</td></tr>
+    <tr><td>취향 어댑터</td><td>시험 문장 30개에서 학습 전보다 추출 정확도 향상</td></tr>
+    <tr><td>사람 블라인드 비교</td><td>20쌍 중 학습 후 일정 선호가 과반</td></tr>
+  </table>
+  <p class="muted">평가기로 고른 데이터로 학습했기 때문에 평가기 점수만으로는 "실제로 좋아졌는지"와 "점수 받는 요령만 배웠는지"를 구분할 수 없어, 사람 블라인드 비교를 함께 진행합니다.</p>
+
+  <div class="box"><b>기대 결과.</b> Base 8B 모델의 가중치를 바꾸지 않고, 규칙 평가기로 선별한 데이터로 QLoRA 어댑터만 학습해 학습 전 대비 일정 품질이 개선됨을 수치와 사람 평가로 보여줍니다.</div>
+  <div class="ft"><span>트립핏 2차 프로젝트 계획서</span><span>9</span></div>
+</section>
+
+</body>
+</html>
