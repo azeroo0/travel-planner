@@ -12,3 +12,6 @@ wheels/
 
 # Secrets
 .env
+
+# Tripadvisor 리뷰 원문 (약관상 저장·공개 금지, 로컬 평가용)
+datas/cjm/out/real/
