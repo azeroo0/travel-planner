@@ -36,25 +36,28 @@ Replies, 💡 explanations and commit messages stay Korean.
 - Future extensions, built only on explicit request: itinerary generation,
   location and travel-time calculation (Google Maps API), the clarifying-question
   planner, and a Validator.
-- The model learns an extraction skill for unseen reviews; place facts belong in
-  a database, never in training targets.
+- TourAPI place data is trusted fact. Keep it with the place, and derive a label
+  from it where the review is silent: a place's type tells indoor or outdoor
+  even without an explicit field.
 
 ## Data invariants
 
 - Output shape: `{"traveler_context": [...], "aspects": [{"category",
-  "attribute", "sentiment", "evidence"}]}`. Every `evidence` is a verbatim span
-  of the source review, and nothing absent from the review is labeled.
-- The per-category aspect list in `README.md` is a draft; pilot annotation
-  settles it. Ask before adding, renaming, or removing a category.
+  "attribute", "sentiment", "evidence"}]}`. `evidence` is a verbatim span of the
+  review, or, for a label derived from place facts, the fact it rests on, written
+  `place:<field>=<value>` (e.g. `place:content_type_id=14`). A model trained on
+  place-derived labels gets those facts in its input too.
+- `src/travel_planner/schema.py` holds the aspects and their allowed values;
+  `docs/annotation-guideline.md` holds the labeling rules.
 - **Gold** is data a person compared against the source and approved, whoever
   drafted it. **Silver** is Teacher-LLM output that passed only automatic checks
-  (JSON, allowed aspect, attribute/sentiment values, evidence in source, required
-  fields). Keep the tier on every record.
+  (JSON, allowed aspect, attribute/sentiment values, evidence found in the review
+  or the cited place fact, required fields). Keep the tier on every record.
 - The test set is Gold only and shared by every experiment: Gold-only vs
   Gold + Silver, and Base vs LoRA vs QLoRA on the same task, labels, and split.
 - Mark synthetic reviews as synthetic; they never count as real user reviews.
-- Split policy, scoring thresholds, and training hyperparameters are open
-  decisions: ask, rather than invent.
+- For split policy, scoring thresholds, and training hyperparameters, propose a
+  default with its reasoning and let the user confirm it.
 
 ## Verification
 
