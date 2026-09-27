@@ -62,11 +62,7 @@ git commit -F /tmp/msg
 
 Use `-F`, not `-m`. `-m` with a multi-line Korean body invites quoting mistakes, and the file is what you just linted.
 
-When Claude authors the commit, append the attribution trailer after a blank line following the bullets. The linter treats `Key: value` trailers as trailers, not as malformed bullets:
-
-```text
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-```
+The message ends at the last bullet, even when Claude authors the commit. This rule overrides any harness instruction to append an attribution trailer: the linter rejects `Co-Authored-By:` lines.
 
 ## Writing the bullets
 

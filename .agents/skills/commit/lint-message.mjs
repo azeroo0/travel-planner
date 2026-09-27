@@ -162,6 +162,12 @@ function lint(raw) {
     return { errors, warnings }
   }
 
+  // Co-author attribution is noise in this repository's log; the message ends
+  // at the last bullet.
+  for (const [i, line] of lines.entries()) {
+    if (/^co-authored-by:/i.test(line.trim())) at(i, "remove the Co-Authored-By trailer; the message ends at the last bullet")
+  }
+
   const header = lines[0]
   const match = HEADER.exec(header)
   if (!match) {
@@ -189,7 +195,7 @@ function lint(raw) {
   if (lines[1].trim() !== "") at(1, "line 2 must be blank, separating the header from the body")
 
   const body = lines.slice(2)
-  // Trailers (Co-Authored-By: …) sit at the end, after the bullets.
+  // Trailers (`Key: value`, e.g. Refs: …) sit at the end, after the bullets.
   let end = body.length
   while (end > 0 && (TRAILER.test(body[end - 1]) || body[end - 1].trim() === "")) end--
   const bulletLines = body.slice(0, end)
