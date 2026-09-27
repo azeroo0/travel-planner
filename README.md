@@ -101,17 +101,23 @@ Context / Aspect / Attribute / Sentiment / Evidence
 
 ## 4. 카테고리별 라벨
 
-| 🏨 호텔 | 🍚 식당 | 🌊 관광지 |
+| 🏨 호텔 `hotel` | 🍽️ 식당 `restaurant` | 🏖️ 관광지 `attraction` |
 | --- | --- | --- |
-| `cleanliness` · 청결 | `taste` · 맛 | `scenery` · 경치 |
-| `quietness` · 조용함 | `value_for_money` · 가성비 | `crowdedness` · 혼잡도 |
-| `accessibility` · 접근성 | `waiting_time` · 웨이팅 | `walking_burden` · 걷기 부담 |
-| `room_quality` · 객실 | `service` · 서비스 | `accessibility` · 접근성 |
-| `view` · 전망 | `cleanliness` · 청결 | `photo_spots` · 사진 |
-| `service` · 서비스 | `atmosphere` · 분위기 | `family_friendly` · 가족 적합 |
-| `value_for_money` · 가성비 | `portion` · 양 | `things_to_do` · 볼거리 |
+| `cleanliness` · 청결 | `food_quality` · 음식 맛/품질 | `scenery` · 경관 종류 |
+| `noise_level` · 소음 | `freshness` · 신선도 | `photo_spots` · 사진 촬영 만족도 |
+| `bed_comfort` · 침대/침구 편안함 | `portion` · 음식 양 | `walking_burden` · 걷기 부담 |
+| `room_size` · 객실 크기 | `waiting_time` · 웨이팅 시간 | `slope_stairs` · 언덕/계단 부담 |
+| `bathroom_quality` · 욕실/수압 | `serving_speed` · 음식 제공 속도 | `activity_variety` · 볼거리/즐길거리 |
+| `room_condition` · 객실/시설 상태 | `staff_service` · 직원 친절/응대 | `stay_duration` · 체류 시간 |
+| `view_quality` · 객실 전망 | `cleanliness` · 매장/식기 청결 | `rest_facilities` · 휴식시설 |
+| `staff_service` · 직원 친절/응대 | `atmosphere` · 매장 분위기 | `toilet_facilities` · 화장실 편의 |
+| `breakfast_quality` · 조식 품질 | `noise_level` · 매장 소음 | `weather_sensitivity` · 날씨 영향 (실내/실외) |
+| `amenities` · 편의/부대시설 유무 | `seating_comfort` · 좌석/공간 편의 | `parking_availability` · 주차 가능 여부 |
+| `parking_availability` · 주차 가능 여부 | `family_friendly` · 가족 동반 적합도 | `parking_experience` · 실제 주차 경험 |
+| `parking_experience` · 실제 주차 경험 | `parking_availability` · 주차 가능 여부 | |
+| | `parking_experience` · 실제 주차 경험 | |
 
-> **참고:** 이 목록은 시작안입니다. 실제 리뷰 Pilot Annotation 후 **반복적으로 등장하고 사람이 일관되게 판단 가능한 Aspect만** 확정합니다.
+> **참고:** aspect별 허용값(attribute, sentiment, traveler_context)은 [`src/travel_planner/schema.py`](src/travel_planner/schema.py), 라벨링 규칙은 [`docs/annotation-guideline.md`](docs/annotation-guideline.md)가 기준입니다. 둘 다 파일럿 어노테이션 후 확정하는 초안입니다.
 
 ---
 
