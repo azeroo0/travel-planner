@@ -117,7 +117,7 @@ Context / Aspect / Attribute / Sentiment / Evidence
 | `parking_experience` · 실제 주차 경험 | `parking_availability` · 주차 가능 여부 | |
 | | `parking_experience` · 실제 주차 경험 | |
 
-> **참고:** aspect별 허용값(attribute, sentiment, traveler_context)은 [`src/travel_planner/schema.py`](src/travel_planner/schema.py), 라벨링 규칙은 [`docs/annotation-guideline.md`](docs/annotation-guideline.md)가 기준입니다. 둘 다 파일럿 어노테이션 후 확정하는 초안입니다.
+> **참고:** aspect별 허용값(attribute, sentiment, traveler_context)은 [`datas/cjm/schema.py`](datas/cjm/schema.py), 라벨링 규칙은 [`docs/annotation-guideline.md`](docs/annotation-guideline.md)가 기준입니다. 둘 다 파일럿 어노테이션 후 확정하는 초안입니다.
 
 ---
 
