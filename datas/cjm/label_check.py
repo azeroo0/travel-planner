@@ -5,7 +5,7 @@ evidence가 리뷰 원문 또는 인용한 장소 정보(place:<필드>=<값>)�
 규칙은 docs/annotation-guideline.md, 허용값은 schema.py를 따른다.
 
 사용법:
-  uv run python -m travel_planner.label_check reviews.jsonl --places datas/cjm/out --out silver.jsonl
+  uv run python datas/cjm/label_check.py reviews.jsonl --out silver.jsonl
 """
 
 import argparse
@@ -13,8 +13,9 @@ import json
 from pathlib import Path
 from typing import Final
 
-from travel_planner.schema import ASPECTS, ATTRIBUTES, SENTIMENTS, TRAVELER_CONTEXTS
+from schema import ASPECTS, ATTRIBUTES, SENTIMENTS, TRAVELER_CONTEXTS
 
+HERE: Final = Path(__file__).parent
 REQUIRED_FIELDS: Final = ("review_id", "place_id", "category", "synthetic", "review", "label")
 ASPECT_FIELDS: Final = ("category", "attribute", "sentiment", "evidence")
 PLACE_PREFIX: Final = "place:"
@@ -158,7 +159,7 @@ def check_file(records_path: Path, places: dict[str, dict], out_path: Path) -> N
 def main() -> None:
     parser = argparse.ArgumentParser(description="라벨 레코드의 Silver 조건 검사")
     parser.add_argument("records", type=Path, help="검사할 JSONL 파일")
-    parser.add_argument("--places", type=Path, default=Path("datas/cjm/out"), help="places_*.json 폴더")
+    parser.add_argument("--places", type=Path, default=HERE / "out", help="places_*.json 폴더")
     parser.add_argument("--out", type=Path, required=True, help="통과한 레코드를 쓸 JSONL 파일")
     args = parser.parse_args()
 
