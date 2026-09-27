@@ -7,15 +7,27 @@
   4. 해운대구·기장군 숙박업 현황 CSV  호텔
 
 결과: out/places_{hotel,restaurant,attraction}.json
-주차 가능 여부(facts.parking)는 TourAPI detailIntro2에서만 받는다. 장소 1곳당 1회 호출한다.
+주차·메뉴·이용 시간 같은 소개 정보는 TourAPI detailIntro2에서만 받는다. 장소 1곳당 1회 호출한다.
 
 한 출처·요청·레코드가 실패해도 전체를 멈추지 않는다. 실패한 부분만 빼고 저장한 뒤,
 무엇을 건너뛰었는지 마지막에 요약해서 보여준다.
+
+TourAPI 하루 한도(개발 계정 1,000회)를 지키는 장치
+  - 캐시: 성공한 응답은 out/cache/tourapi/에 저장하고, 다음 실행부터는 호출하지 않는다.
+  - 호출 예산: 이번 실행의 실제 호출이 --max-calls에 닿으면 요청을 보내기 전에 멈춘다.
+  - 차단기: 연속 3회 실패하거나 인증·한도 오류가 오면 TourAPI를 더 부르지 않는다.
+  - --dry-run: 네트워크 없이 캐시만 보고 필요한 호출 수를 센다.
+
+사용법:
+  uv run python datas/cjm/collect_places.py --dry-run
+  uv run python datas/cjm/collect_places.py
 """
 
+import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import re
 import time
@@ -54,8 +66,11 @@ class Place(TypedDict):
 # ---------- 실패 처리 ----------
 
 
-class QuotaExceeded(RuntimeError):
-    """하루 호출 한도 초과. 같은 API의 남은 요청도 모두 실패하므로 그 API는 더 부르지 않는다."""
+class StopSource(RuntimeError):
+    """이 출처는 더 부르지 않는다. 한도 초과·인증 오류·호출 예산 소진·연속 실패일 때 던진다.
+
+    같은 출처의 남은 요청도 모두 실패할 것이므로, 헛호출로 한도를 쓰지 않도록 멈춘다.
+    """
 
 
 # 건너뛰어도 되는 오류: API·네트워크 오류, 필드 누락, 값 형식 문제, 파일 문제.
@@ -98,10 +113,11 @@ def convert_each(
 
 
 def clean(text: object) -> str | None:
-    """앞뒤 공백을 지우고, 빈 문자열이면 None으로 바꾼다."""
+    """HTML 태그(<br> 등)와 겹친 공백을 지우고, 빈 문자열이면 None으로 바꾼다."""
     if text is None:
         return None
-    text = str(text).strip()
+    text = re.sub(r"<[^>]+>", " ", str(text))  # TourAPI 값에는 <br>, <rb> 같은 태그가 섞여 온다
+    text = re.sub(r"\s+", " ", text).strip()
     return text or None
 
 
@@ -128,6 +144,18 @@ def pick_facts(item: dict, fields: dict[str, str]) -> dict[str, str | int]:
     return facts
 
 
+def error_from_xml(text: str) -> RuntimeError:
+    """JSON 대신 온 응답을 해석한다.
+
+    공공데이터포털은 키 미등록·한도 초과 같은 인증 오류를 HTTP 200 + XML로 보내기도 한다.
+    그런 오류는 남은 요청도 모두 실패하므로 StopSource로 출처 전체를 멈춘다.
+    """
+    match = re.search(r"<returnAuthMsg>(.*?)</returnAuthMsg>", text)
+    if match:
+        return StopSource(f"API 인증·한도 오류: {match.group(1)}")
+    return RuntimeError("응답이 JSON이 아님")
+
+
 def get_json(url: str, params: dict) -> dict:
     """GET 요청 후 JSON을 돌려준다.
 
@@ -138,42 +166,126 @@ def get_json(url: str, params: dict) -> dict:
     except requests.RequestException as e:
         raise RuntimeError(f"요청 실패 ({type(e).__name__})") from None
     if res.status_code == 429:
-        raise QuotaExceeded("하루 호출 한도 초과 (HTTP 429)")
+        raise StopSource("하루 호출 한도 초과 (HTTP 429)")
     if not res.ok:
         raise RuntimeError(f"HTTP {res.status_code}")
     try:
         return res.json()
     except ValueError:
-        raise RuntimeError("응답이 JSON이 아님") from None
+        raise error_from_xml(res.text) from None
 
 
 # ---------- 출처 1: TourAPI ----------
 
 # (카테고리, contentTypeId): 관광지 12, 문화시설 14, 레포츠 28은 모두 attraction
-TOUR_CONTENT_TYPES: Final[list[tuple[Category, int]]] = [
-    ("hotel", 32),
-    ("restaurant", 39),
-    ("attraction", 12),
-    ("attraction", 14),
-    ("attraction", 28),
+TOUR_CONTENT_TYPES: Final[list[tuple[Category, str]]] = [
+    ("hotel", "32"),
+    ("restaurant", "39"),
+    ("attraction", "12"),
+    ("attraction", "14"),
+    ("attraction", "28"),
 ]
 SIGUNGU: Final[dict[District, str]] = {"haeundae": "350", "gijang": "710"}
 ROWS_PER_PAGE: Final = 100
 MAX_PAGES: Final = 20  # 무한 루프 안전장치: 해운대·기장은 조합당 2페이지면 충분
 
 
-# contentTypeId별로 detailIntro2의 주차 필드 이름이 다르다
-PARKING_FIELDS: Final[dict[int, str]] = {
-    32: "parkinglodging",
-    39: "parkingfood",
-    12: "parking",
-    14: "parkingculture",
-    28: "parkingleports",
+# contentTypeId별 detailIntro2 필드 → facts 키. 필드 이름이 타입마다 다르다.
+# 주차(parking)는 라벨 규칙에 쓰고, 나머지는 합성 리뷰를 구체적으로 만드는 재료로 쓴다.
+INTRO_FIELDS: Final[dict[str, dict[str, str]]] = {
+    "32": {
+        "parkinglodging": "parking",
+        "subfacility": "facilities",
+        "roomtype": "room_type",
+        "checkintime": "checkin",
+        "checkouttime": "checkout",
+    },
+    "39": {
+        "parkingfood": "parking",
+        "firstmenu": "menu",
+        "treatmenu": "menu_more",
+        "opentimefood": "hours",
+        "restdatefood": "holiday",
+        "kidsfacility": "kids_facility",
+        "packing": "takeout",
+    },
+    "12": {
+        "parking": "parking",
+        "usetime": "hours",
+        "restdate": "holiday",
+        "chkbabycarriage": "baby_carriage",
+        "expguide": "experience",
+    },
+    "14": {
+        "parkingculture": "parking",
+        "usetimeculture": "hours",
+        "restdateculture": "holiday",
+        "usefee": "fee",
+        "parkingfee": "parking_fee",
+    },
+    "28": {
+        "parkingleports": "parking",
+        "usetimeleports": "hours",
+        "restdateleports": "holiday",
+        "expagerangeleports": "age_range",
+        "parkingfeeleports": "parking_fee",
+    },
 }
+FLAG_VALUES: Final[dict[str, str]] = {"0": "없음", "1": "있음"}  # kidsfacility처럼 0/1로 오는 필드
 
 
-def tourapi_get(operation: str, params: dict) -> dict:
-    """TourAPI 공통 파라미터를 붙여 요청하고, 결과 코드를 확인한 뒤 body를 돌려준다."""
+# ---------- TourAPI 호출 관리: 캐시 · 호출 예산 · 차단기 ----------
+
+CACHE_DIR: Final = OUT_DIR / "cache" / "tourapi"
+DEFAULT_MAX_CALLS: Final = 900  # 개발 계정 하루 한도 1,000회보다 여유를 둔다
+MAX_CONSECUTIVE_FAILURES: Final = 3
+SECONDS_BETWEEN_CALLS: Final = 0.2
+
+
+@dataclass
+class CallGuard:
+    """TourAPI 실제 호출 수와 연속 실패를 센다. 선을 넘으면 요청을 보내기 전에 StopSource로 멈춘다."""
+
+    max_calls: int = DEFAULT_MAX_CALLS
+    use_cache: bool = True
+    calls: int = 0
+    cache_hits: int = 0
+    consecutive_failures: int = 0
+
+    def before_call(self) -> None:
+        if self.calls >= self.max_calls:
+            raise StopSource(f"이번 실행의 호출 예산 {self.max_calls}회를 다 씀")
+        if self.consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            raise StopSource(f"연속 {self.consecutive_failures}회 실패")
+        self.calls += 1
+
+    def after_call(self, ok: bool) -> None:
+        self.consecutive_failures = 0 if ok else self.consecutive_failures + 1
+        time.sleep(SECONDS_BETWEEN_CALLS)
+
+
+GUARD = CallGuard()
+
+
+def cache_path(operation: str, key: str) -> Path:
+    return CACHE_DIR / operation / f"{key}.json"
+
+
+def read_cache(operation: str, key: str) -> dict | None:
+    path = cache_path(operation, key)
+    if not GUARD.use_cache or not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_cache(operation: str, key: str, body: dict) -> None:
+    path = cache_path(operation, key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(body, ensure_ascii=False), encoding="utf-8")
+
+
+def request_tourapi(operation: str, params: dict) -> dict:
+    """TourAPI 공통 파라미터를 붙여 실제로 요청하고, 결과 코드를 확인한 뒤 body를 돌려준다."""
     data = get_json(
         f"{os.environ['TOUR_API_BASE_URL']}/{operation}",
         {
@@ -184,14 +296,49 @@ def tourapi_get(operation: str, params: dict) -> dict:
             **params,
         },
     )
+    if "response" not in data:  # 인증·한도 오류는 OpenAPI_ServiceResponse 모양으로 온다
+        header = data.get("OpenAPI_ServiceResponse", {}).get("cmmMsgHeader", {})
+        raise StopSource(f"API 인증·한도 오류: {header.get('returnAuthMsg') or '알 수 없는 응답'}")
     header = data["response"]["header"]
     if header["resultCode"] != "0000":
         raise RuntimeError(f"TourAPI 오류: {header['resultMsg']}")
     return data["response"]["body"]
 
 
-def fetch_tourapi_page(content_type: int, sigungu: str, page: int) -> dict:
-    """areaBasedList2 한 페이지를 요청한다."""
+def tourapi_get(operation: str, params: dict, cache_key: str) -> dict:
+    """TourAPI body를 돌려준다. 캐시에 있으면 호출하지 않고, 성공한 응답만 캐시에 저장한다."""
+    cached = read_cache(operation, cache_key)
+    if cached is not None:
+        GUARD.cache_hits += 1
+        return cached
+
+    GUARD.before_call()
+    try:
+        body = request_tourapi(operation, params)
+    except StopSource:
+        raise
+    except SKIPPABLE:
+        GUARD.after_call(ok=False)
+        raise
+    GUARD.after_call(ok=True)
+    write_cache(operation, cache_key, body)
+    return body
+
+
+def items_of(body: dict) -> list[dict]:
+    """결과가 없으면 items가 객체가 아니라 빈 문자열로 온다."""
+    return body["items"]["item"] if body["items"] else []
+
+
+def list_cache_key(content_type: str, sigungu: str, page: int) -> str:
+    return f"{content_type}_{sigungu}_p{page}"
+
+
+# ---------- TourAPI 요청 ----------
+
+
+def fetch_tourapi_page(content_type: str, sigungu: str, page: int) -> dict:
+    """areaBasedList2 한 페이지를 받는다."""
     return tourapi_get(
         "areaBasedList2",
         {
@@ -201,40 +348,44 @@ def fetch_tourapi_page(content_type: int, sigungu: str, page: int) -> dict:
             "numOfRows": ROWS_PER_PAGE,
             "pageNo": page,
         },
+        cache_key=list_cache_key(content_type, sigungu, page),
     )
 
 
-def fetch_tourapi_intro(content_id: str, content_type: int) -> dict:
+def fetch_tourapi_intro(content_id: str, content_type: str) -> dict:
     """detailIntro2로 장소 한 곳의 소개 정보(주차, 영업시간 등)를 받는다."""
-    body = tourapi_get("detailIntro2", {"contentId": content_id, "contentTypeId": content_type})
-    items = body["items"]["item"] if body["items"] else []
+    body = tourapi_get(
+        "detailIntro2",
+        {"contentId": content_id, "contentTypeId": content_type},
+        cache_key=content_id,
+    )
+    items = items_of(body)
     if not items:
         raise RuntimeError("소개 정보가 비어 있음")
     return items[0]
 
 
-def iter_tourapi_items(content_type: int, sigungu: str) -> Iterator[dict]:
+def iter_tourapi_items(content_type: str, sigungu: str) -> Iterator[dict]:
     """모든 페이지를 차례로 받아 item을 하나씩 내보낸다."""
     for page in range(1, MAX_PAGES + 1):
         body = fetch_tourapi_page(content_type, sigungu, page)
-        items = body["items"]["item"] if body["items"] else []
+        items = items_of(body)
         yield from items
 
         # body["numOfRows"]는 "이번에 받은 개수"라서 종료 조건에 쓰면 안 된다
         if not items or page * ROWS_PER_PAGE >= body["totalCount"]:
             return
-        time.sleep(0.2)
     raise RuntimeError(f"{MAX_PAGES}페이지를 넘었습니다")
 
 
-def fetch_tourapi_items(content_type: int, sigungu: str, where: str) -> list[dict]:
+def fetch_tourapi_items(content_type: str, sigungu: str, where: str) -> list[dict]:
     """한 조합의 item을 모두 받는다. 도중에 실패하면 그때까지 받은 것만 돌려준다."""
     items: list[dict] = []
     try:
         for item in iter_tourapi_items(content_type, sigungu):
             items.append(item)
-    except QuotaExceeded:
-        raise  # 한도 초과는 load_tourapi가 받아서 TourAPI 전체를 멈춘다
+    except StopSource:
+        raise  # load_tourapi가 받아서 TourAPI 전체를 멈춘다
     except SKIPPABLE as e:
         warn(where, f"{describe(e)} → {len(items)}건까지만 사용")
     return items
@@ -261,35 +412,87 @@ def load_tourapi() -> list[Place]:
         where = f"TourAPI {category}({content_type})/{district}"
         try:
             items = fetch_tourapi_items(content_type, sigungu, where)
-        except QuotaExceeded as e:
+        except StopSource as e:
             warn("TourAPI", f"{e} → 남은 TourAPI 요청을 모두 건너뜀")
             break
         places += convert_each(items, lambda item: tourapi_to_place(item, category, district), where)
     return places
 
 
-def add_tourapi_parking(places: list[Place]) -> None:
-    """TourAPI 장소마다 detailIntro2를 불러 facts["parking"]을 채운다. 장소 1곳당 1회 호출한다."""
+def intro_facts(intro: dict, fields: dict[str, str]) -> dict[str, str | int]:
+    facts = pick_facts(intro, fields)
+    for key, value in facts.items():
+        facts[key] = FLAG_VALUES.get(str(value), value)
+    return facts
+
+
+def add_tourapi_intro_facts(places: list[Place]) -> None:
+    """TourAPI 장소마다 detailIntro2를 불러 주차·메뉴·이용 시간 등을 facts에 채운다. 캐시에 없는 장소만 호출한다."""
     for place in places:
-        content_type = int(place["facts"]["content_type_id"])
-        field = PARKING_FIELDS[content_type]
-        where = f"TourAPI 주차 정보 {place['place_id']}"
+        where = f"TourAPI 소개 정보 {place['place_id']}"
+        content_type = str(place["facts"].get("content_type_id", ""))
+        fields = INTRO_FIELDS.get(content_type)
+        if fields is None:
+            warn(where, f"소개 필드를 알 수 없는 contentTypeId {content_type!r}")
+            continue
+
         try:
             intro = fetch_tourapi_intro(place["place_id"].removeprefix("tourapi:"), content_type)
-        except QuotaExceeded as e:
-            warn("TourAPI 주차 정보", f"{e} → 남은 장소는 주차 정보 없이 저장")
+        except StopSource as e:
+            warn("TourAPI 소개 정보", f"{e} → 남은 장소는 소개 정보 없이 저장")
             return
         except SKIPPABLE as e:
             warn(where, describe(e))
             continue
 
-        if field not in intro:  # 필드 이름이 바뀌었거나 잘못됐으면 여기서 드러난다
-            warn(where, f"응답에 {field} 필드가 없음")
+        missing = [field for field in fields if field not in intro]
+        if missing:  # 필드 이름이 바뀌었거나 잘못됐으면 여기서 드러난다
+            warn(where, f"응답에 없는 필드 {missing}")
+        place["facts"].update(intro_facts(intro, fields))
+
+
+# ---------- TourAPI 호출 수 미리 세기 (--dry-run) ----------
+
+
+def needs_intro_call(item: dict) -> bool:
+    """add_tourapi_intro_facts가 실제로 호출할 장소인지. 소개 필드를 모르는 타입은 호출하지 않는다."""
+    return item.get("contenttypeid") in INTRO_FIELDS and read_cache("detailIntro2", item["contentid"]) is None
+
+
+def count_combo_calls(content_type: str, sigungu: str) -> tuple[int, int, bool]:
+    """한 조합에서 캐시에 없는 (목록 호출 수, 소개 호출 수, 장소 수를 아는지)를 센다."""
+    first = read_cache("areaBasedList2", list_cache_key(content_type, sigungu, 1))
+    if first is None:
+        return 1, 0, False  # 첫 페이지가 없으면 장소가 몇 곳인지 알 수 없다
+
+    list_calls = intro_calls = 0
+    pages = min(MAX_PAGES, max(1, math.ceil(first["totalCount"] / ROWS_PER_PAGE)))
+    for page in range(1, pages + 1):
+        body = read_cache("areaBasedList2", list_cache_key(content_type, sigungu, page))
+        if body is None:
+            list_calls += 1
             continue
-        parking = clean(intro[field])
-        if parking:
-            place["facts"]["parking"] = parking
-        time.sleep(0.1)
+        intro_calls += sum(1 for item in items_of(body) if needs_intro_call(item))
+    return list_calls, intro_calls, True
+
+
+def plan_tourapi_calls() -> None:
+    """네트워크를 쓰지 않고, 캐시만 보고 실제 실행 때 필요한 TourAPI 호출 수를 출력한다."""
+    list_calls = intro_calls = 0
+    unknown: list[str] = []
+    for (category, content_type), (district, sigungu) in product(TOUR_CONTENT_TYPES, SIGUNGU.items()):
+        combo_list, combo_intro, known = count_combo_calls(content_type, sigungu)
+        list_calls += combo_list
+        intro_calls += combo_intro
+        if not known:
+            unknown.append(f"{category}({content_type})/{district}")
+
+    print(f"TourAPI 예상 호출 (캐시 {'사용' if GUARD.use_cache else '무시'}, 예산 {GUARD.max_calls}회)")
+    print(f"  목록 areaBasedList2: {list_calls}회 이상")
+    print(f"  소개 detailIntro2:  {intro_calls}회 + 목록을 모르는 조합의 장소 수")
+    if unknown:
+        print(f"  목록 캐시가 없는 조합 {len(unknown)}개 (지난 조사로는 전체 약 376곳): {', '.join(unknown)}")
+    print("부산시 명소·맛집 API: 각 1회 (TourAPI와 한도가 따로다)")
 
 
 # ---------- 출처 2·3: 부산광역시 명소·맛집 API ----------
@@ -499,10 +702,25 @@ def print_warnings() -> None:
 # ---------- 실행 ----------
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="해운대·기장 장소 목록 수집")
+    parser.add_argument("--dry-run", action="store_true", help="네트워크 없이 필요한 TourAPI 호출 수만 센다")
+    parser.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS, help="이번 실행의 TourAPI 호출 상한")
+    parser.add_argument("--no-cache", action="store_true", help="캐시를 무시하고 다시 받는다 (호출이 늘어난다)")
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
+    GUARD.max_calls = args.max_calls
+    GUARD.use_cache = not args.no_cache
+    if args.dry_run:
+        plan_tourapi_calls()
+        return
+
     # 좌표가 있는 API 출처를 앞에 둬서, 중복일 때 API 레코드가 남도록 한다
     places = load_tourapi()
-    add_tourapi_parking(places)  # 주차 정보는 TourAPI에만 있다
+    add_tourapi_intro_facts(places)  # 주차·메뉴·이용 시간 등 소개 정보는 TourAPI에만 있다
     for api in BUSAN_APIS:
         places += load_busan_api(api)
     places += load_lodging_csvs()
@@ -514,6 +732,7 @@ def main() -> None:
     else:
         print("수집된 데이터가 없어 저장하지 않습니다.")  # 기존 결과 파일을 빈 파일로 덮어쓰지 않는다
 
+    print(f"\nTourAPI 실제 호출 {GUARD.calls}회 (예산 {GUARD.max_calls}회), 캐시 사용 {GUARD.cache_hits}회")
     print_warnings()
 
 
