@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold 검수</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+    --accent: #2f6fed; --gold: #b7791f; --gold-bg: #fdf3dc; --bad: #c53030; --bad-bg: #fde8e8;
+    --ok: #2f855a; --mark: #fff1a8; --mark-strong: #ffd84d; --place: #e6f0ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1c2027; --text: #e6e8ec; --muted: #9aa3af; --line: #2d333d;
+      --accent: #6c9bff; --gold: #f0b94a; --gold-bg: #3a2f14; --bad: #f18a8a; --bad-bg: #3b1d1d;
+      --ok: #6fcf97; --mark: #5a4e14; --mark-strong: #8a7412; --place: #1d2c45;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  header { display: flex; gap: 16px; align-items: center; padding: 10px 20px;
+           background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 16px; margin: 0; }
+  .progress { display: flex; gap: 12px; color: var(--muted); font-size: 13px; }
+  .progress b { color: var(--text); }
+  .bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; max-width: 280px; }
+  .bar div { height: 100%; background: var(--gold); }
+  .layout { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 49px); }
+  aside { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; max-height: calc(100vh - 49px);
+          position: sticky; top: 49px; }
+  aside .filters { display: flex; gap: 4px; padding: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); background: none; color: var(--muted); border-radius: 12px;
+          padding: 2px 10px; font-size: 12px; cursor: pointer; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .list button { display: flex; width: 100%; gap: 8px; align-items: center; border: 0; background: none; color: var(--text);
+                 text-align: left; padding: 7px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .list button:hover { background: var(--bg); }
+  .list button.current { background: var(--place); }
+  .list .preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--line); }
+  .dot.gold { background: var(--gold); } .dot.discarded { background: var(--bad); }
+  main { padding: 20px; max-width: 1100px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 13px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .badge { font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); }
+  .badge.gold { background: var(--gold-bg); color: var(--gold); border-color: transparent; }
+  .badge.discarded { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .review { font-size: 17px; line-height: 1.9; white-space: pre-wrap; }
+  .review mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 1px 0; }
+  .review mark.hot { background: var(--mark-strong); }
+  .hint { font-size: 12px; color: var(--muted); }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: 13px; }
+  .facts dt { color: var(--muted); } .facts dd { margin: 0; word-break: break-all; }
+  .travelers { display: flex; gap: 14px; flex-wrap: wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 6px; }
+  td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  tr.focus td { background: var(--place); }
+  select, input[type=text], textarea { width: 100%; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; }
+  input.bad { border-color: var(--bad); }
+  .status-ok { color: var(--ok); } .status-bad { color: var(--bad); }
+  .row-actions { white-space: nowrap; }
+  .icon { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; padding: 2px 4px; }
+  .icon:hover { color: var(--text); }
+  .tool { border: 1px dashed var(--line); background: none; color: var(--muted); border-radius: 5px;
+          padding: 5px 10px; cursor: pointer; margin-top: 8px; font-size: 13px; }
+  .checklist label { display: block; font-size: 14px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 6px;
+         padding: 8px 16px; font: inherit; font-size: 14px; cursor: pointer; }
+  .btn.primary { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: 600; }
+  .btn.danger { color: var(--bad); }
+  .errors { color: var(--bad); background: var(--bad-bg); border-radius: 6px; padding: 8px 12px; font-size: 13px; margin: 0 0 10px; }
+  .errors:empty { display: none; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  details pre { font-size: 12px; background: var(--bg); padding: 8px; border-radius: 5px; overflow-x: auto; }
+  .diff { font-size: 12px; color: var(--gold); }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: static; max-height: 220px; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gold 검수</h1>
+  <div class="bar"><div id="bar"></div></div>
+  <div class="progress" id="progress"></div>
+  <div class="hint" style="margin-left:auto">⌘/Ctrl+Enter 승인 · j/k 이동</div>
+</header>
+<div class="layout">
+  <aside>
+    <div class="filters" id="filters"></div>
+    <div class="list" id="list"></div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+const FILTERS = { pending: "대기", gold: "Gold", discarded: "버림", all: "전체" };
+const STATUS_NAMES = { pending: "검수 대기", gold: "Gold 승인", discarded: "버림" };
+const CHECKLIST = [
+  "리뷰가 말한 aspect를 빠뜨리지 않았다",
+  "리뷰에 없는 aspect를 지어내지 않았다 (장소 정보 근거는 가이드라인 5절 규칙에 맞다)",
+  "attribute(상태)와 sentiment(평가)가 가이드라인 규칙에 맞다",
+  "evidence가 판단을 담은 가장 짧은 구절이다",
+  "traveler_context에 리뷰에 적힌 동행만 있다",
+];
+// 사람이 주로 보는 장소 정보. 나머지 facts는 그 아래에 이어서 보여준다.
+const FACT_ORDER = ["class_code", "parking", "parking_fee", "facilities", "menu", "hours", "fee"];
+
+const state = { schema: null, items: [], filter: "pending", currentId: null, draft: null, note: "", focusRow: 0 };
+
+// ---------- 서버 ----------
+
+async function load() {
+  const res = await fetch("/api/state");
+  const data = await res.json();
+  state.schema = data.schema;
+  state.items = data.items;
+  const next = state.items.find(item => item.status === "pending") || state.items[0];
+  select(next.review_id);
+}
+
+async function post(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { showErrors(data.errors); return null; }
+  const index = state.items.findIndex(item => item.review_id === data.item.review_id);
+  state.items[index] = data.item;
+  return data.item;
+}
+
+async function decide(action) {
+  const item = currentItem();
+  const body = { review_id: item.review_id, note: state.note };
+  if (action === "approve") body.label = cleanLabel(state.draft);
+  const saved = await post(`/api/${action}`, body);
+  if (!saved) return;
+  if (action === "reset") { select(saved.review_id); return; }
+  goToNextPending();
+}
+
+// ---------- 선택과 이동 ----------
+
+function currentItem() { return state.items.find(item => item.review_id === state.currentId); }
+
+function visibleItems() {
+  return state.filter === "all" ? state.items : state.items.filter(item => item.status === state.filter);
+}
+
+function select(reviewId) {
+  state.currentId = reviewId;
+  state.draft = structuredClone(currentItem().label);
+  state.note = currentItem().note;
+  state.focusRow = 0;
+  render();
+}
+
+function goToNextPending() {
+  const order = state.items;
+  const start = order.findIndex(item => item.review_id === state.currentId);
+  const rest = [...order.slice(start + 1), ...order.slice(0, start + 1)];
+  const next = rest.find(item => item.status === "pending");
+  select((next || currentItem()).review_id);
+}
+
+function move(step) {
+  const list = visibleItems();
+  const index = list.findIndex(item => item.review_id === state.currentId);
+  const next = list[index + step];
+  if (next) select(next.review_id);
+}
+
+// ---------- 라벨 편집 ----------
+
+function aspectNames(category) { return Object.keys(state.schema.attributes[category]); }
+
+function attributeValues(category, aspect) { return state.schema.attributes[category][aspect] || []; }
+
+function cleanLabel(label) {
+  return {
+    traveler_context: [...label.traveler_context],
+    aspects: label.aspects.map(({ category, attribute, sentiment, evidence }) => ({ category, attribute, sentiment, evidence })),
+  };
+}
+
+function isEdited(item) {
+  return JSON.stringify(cleanLabel(state.draft)) !== JSON.stringify(cleanLabel(item.silver_label));
+}
+
+function evidenceProblem(evidence, item) {
+  if (!evidence.trim()) return "비어 있음";
+  if (evidence.startsWith("place:")) {
+    const [field, ...rest] = evidence.slice(6).split("=");
+    const place = item.place || {};
+    const facts = { ...place, ...(place.facts || {}) };
+    if (!(field in facts)) return `장소 정보에 ${field} 없음`;
+    if (String(facts[field]) !== rest.join("=")) return "장소 정보 값과 다름";
+    return null;
+  }
+  return item.review.includes(evidence) ? null : "리뷰 원문에 없음";
+}
+
+function addAspect() {
+  const item = currentItem();
+  const first = aspectNames(item.category)[0];
+  state.draft.aspects.push({ category: first, attribute: attributeValues(item.category, first)[0], sentiment: "neutral", evidence: "" });
+  state.focusRow = state.draft.aspects.length - 1;
+  render();
+}
+
+// 행 선택만 바뀔 때는 전체를 다시 그리지 않는다. 다시 그리면 열려 있던 드롭다운이 닫힌다.
+function setFocusRow(row) {
+  if (state.focusRow === row) return;
+  state.focusRow = row;
+  document.querySelectorAll("tbody tr").forEach((tr, i) => tr.classList.toggle("focus", i === row));
+  document.getElementById("review-text").replaceChildren(...highlight(currentItem().review));
+}
+
+function fillEvidenceFromSelection() {
+  const text = window.getSelection().toString().trim();
+  if (!text || !state.draft.aspects[state.focusRow]) return;
+  state.draft.aspects[state.focusRow].evidence = text;
+  render();
+}
+
+// ---------- 화면 ----------
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else if (key === "class") node.className = value;
+    else if (value === true) node.setAttribute(key, "");
+    else if (value !== false && value != null) node.setAttribute(key, value);
+  }
+  node.append(...children.flat().filter(child => child != null));
+  return node;
+}
+
+function options(values, selected, nameOf) {
+  return values.map(value => el("option", { value, selected: value === selected }, nameOf(value)));
+}
+
+function showErrors(errors) {
+  document.getElementById("errors").textContent = errors.map(error => `• ${error}`).join("\n");
+}
+
+function render() {
+  renderHeader();
+  renderList();
+  renderMain();
+}
+
+function renderHeader() {
+  const count = status => state.items.filter(item => item.status === status).length;
+  const done = count("gold") + count("discarded");
+  document.getElementById("bar").style.width = `${(done / state.items.length) * 100}%`;
+  document.getElementById("progress").replaceChildren(
+    el("span", {}, "Gold ", el("b", {}, String(count("gold")))),
+    el("span", {}, "버림 ", el("b", {}, String(count("discarded")))),
+    el("span", {}, "대기 ", el("b", {}, String(count("pending")))),
+    el("span", {}, `/ 전체 ${state.items.length}`),
+  );
+  document.getElementById("filters").replaceChildren(...Object.entries(FILTERS).map(([key, name]) =>
+    el("button", { class: `chip ${state.filter === key ? "on" : ""}`, onclick: () => { state.filter = key; renderList(); } }, name)));
+}
+
+function renderList() {
+  document.getElementById("filters").querySelectorAll(".chip").forEach((chip, i) =>
+    chip.classList.toggle("on", Object.keys(FILTERS)[i] === state.filter));
+  document.getElementById("list").replaceChildren(...visibleItems().map(item =>
+    el("button", { class: item.review_id === state.currentId ? "current" : "", onclick: () => select(item.review_id) },
+      el("span", { class: `dot ${item.status}` }),
+      el("span", { class: "preview" }, item.review))));
+}
+
+function renderMain() {
+  const item = currentItem();
+  const main = document.getElementById("main");
+  main.replaceChildren(
+    renderTitle(item),
+    renderReview(item),
+    renderPlace(item),
+    renderLabel(item),
+    renderDecision(item),
+    renderGeneration(item),
+  );
+}
+
+function renderTitle(item) {
+  const place = item.place || {};
+  return el("div", { class: "meta", style: "margin-bottom:10px" },
+    el("span", { class: `badge ${item.status}` }, STATUS_NAMES[item.status]),
+    el("span", {}, state.schema.names.category[item.category]),
+    el("b", { style: "color:var(--text)" }, place.name || "(장소 정보 없음)"),
+    el("span", {}, item.review_id),
+    isEdited(item) ? el("span", { class: "diff" }, "✎ Silver 라벨에서 수정됨") : null);
+}
+
+function renderReview(item) {
+  return el("div", { class: "card" },
+    el("h2", {}, "리뷰"),
+    el("div", { class: "review", id: "review-text", onmouseup: fillEvidenceFromSelection }, highlight(item.review)),
+    el("div", { class: "hint" }, "리뷰에서 구절을 드래그하면 선택한 aspect 행의 evidence로 들어갑니다."));
+}
+
+// 각 글자가 몇 번째 aspect의 evidence에 속하는지 표시해, 같은 aspect에 속한 글자끼리 묶어 칠한다
+function highlight(review) {
+  const owner = new Array(review.length).fill(-1);
+  state.draft.aspects.forEach((aspect, row) => {
+    if (!aspect.evidence || aspect.evidence.startsWith("place:")) return;
+    const start = review.indexOf(aspect.evidence);
+    if (start < 0) return;
+    for (let i = start; i < start + aspect.evidence.length; i++) if (owner[i] === -1 || row === state.focusRow) owner[i] = row;
+  });
+  const parts = [];
+  let start = 0;
+  for (let i = 1; i <= review.length; i++) {
+    if (i < review.length && owner[i] === owner[start]) continue;
+    const text = review.slice(start, i);
+    const row = owner[start];
+    parts.push(row === -1 ? text : el("mark", { class: row === state.focusRow ? "hot" : "", title: state.draft.aspects[row].category }, text));
+    start = i;
+  }
+  return parts;
+}
+
+function renderPlace(item) {
+  const place = item.place;
+  if (!place) return el("div", { class: "card" }, el("h2", {}, "장소 정보"), "장소 정보를 찾을 수 없습니다.");
+  const facts = place.facts || {};
+  const keys = [...FACT_ORDER.filter(key => key in facts), ...Object.keys(facts).filter(key => !FACT_ORDER.includes(key))];
+  return el("details", { class: "card", open: true },
+    el("summary", {}, `장소 정보 · ${place.address || ""}`),
+    el("dl", { class: "facts" },
+      el("dt", {}, "district"), el("dd", {}, place.district || ""),
+      ...keys.flatMap(key => [el("dt", {}, key), el("dd", {}, String(facts[key]))])));
+}
+
+function renderLabel(item) {
+  const names = state.schema.names;
+  const travelers = el("div", { class: "travelers" }, ...state.schema.travelers.map(value =>
+    el("label", {},
+      el("input", { type: "checkbox", checked: state.draft.traveler_context.includes(value), onchange: event => {
+        const set = new Set(state.draft.traveler_context);
+        event.target.checked ? set.add(value) : set.delete(value);
+        state.draft.traveler_context = state.schema.travelers.filter(v => set.has(v));
+        render();
+      } }),
+      ` ${names.traveler[value]} (${value})`)));
+
+  const rows = state.draft.aspects.map((aspect, row) => renderAspectRow(item, aspect, row));
+  return el("div", { class: "card" },
+    el("h2", {}, "traveler_context (동행)"),
+    travelers,
+    el("h2", { style: "margin-top:14px" }, "aspects"),
+    el("table", {},
+      el("thead", {}, el("tr", {}, ...["aspect", "attribute", "sentiment", "evidence", ""].map(t => el("th", {}, t)))),
+      el("tbody", {}, rows)),
+    el("button", { class: "tool", onclick: addAspect }, "+ aspect 추가"));
+}
+
+function renderAspectRow(item, aspect, row) {
+  const names = state.schema.names;
+  const problem = evidenceProblem(aspect.evidence, item);
+  const update = (key, value) => {
+    aspect[key] = value;
+    if (key === "category") aspect.attribute = attributeValues(item.category, value)[0];
+    state.focusRow = row;
+    render();
+  };
+  return el("tr", { class: row === state.focusRow ? "focus" : "", onfocusin: () => setFocusRow(row), onclick: () => setFocusRow(row) },
+    el("td", {}, el("select", { onchange: e => update("category", e.target.value) },
+      options(aspectNames(item.category), aspect.category, v => `${names.aspect[v]} (${v})`))),
+    el("td", {}, el("select", { onchange: e => update("attribute", e.target.value) },
+      options(attributeValues(item.category, aspect.category), aspect.attribute, v => `${names.value[v]} (${v})`))),
+    el("td", {}, el("select", { onchange: e => update("sentiment", e.target.value) },
+      options(state.schema.sentiments, aspect.sentiment, v => names.sentiment[v]))),
+    el("td", { style: "width:40%" },
+      el("input", { type: "text", value: aspect.evidence, class: problem ? "bad" : "", title: problem || "",
+        onchange: e => update("evidence", e.target.value) })),
+    el("td", { class: "row-actions" },
+      el("span", { class: problem ? "status-bad" : "status-ok", title: problem || "evidence 확인됨" }, problem ? "⚠" : "✓"),
+      el("button", { class: "icon", title: "삭제", onclick: event => {
+        event.stopPropagation();
+        state.draft.aspects.splice(row, 1);
+        state.focusRow = Math.max(0, Math.min(state.focusRow, state.draft.aspects.length - 1));
+        render();
+      } }, "✕")));
+}
+
+function renderDecision(item) {
+  const buttons = [
+    el("button", { class: "btn primary", onclick: () => decide("approve") }, item.status === "gold" ? "수정 내용으로 다시 승인" : "승인 → Gold"),
+    el("button", { class: "btn danger", onclick: () => decide("discard") }, "버리기 (리뷰가 부자연스러움)"),
+    item.status !== "pending" ? el("button", { class: "btn", onclick: () => decide("reset") }, "대기로 되돌리기") : null,
+    el("button", { class: "btn", onclick: () => { state.draft = structuredClone(item.silver_label); render(); } }, "Silver 라벨로 초기화"),
+  ];
+  return el("div", { class: "card" },
+    el("h2", {}, "검수 체크리스트 (가이드라인 7절)"),
+    el("div", { class: "checklist" }, CHECKLIST.map(text => el("label", {}, el("input", { type: "checkbox" }), ` ${text}`))),
+    el("h2", { style: "margin-top:14px" }, "메모 (선택)"),
+    el("textarea", { rows: 2, placeholder: "고친 이유, 애매했던 점 등", oninput: e => { state.note = e.target.value; } }, state.note),
+    el("pre", { id: "errors", class: "errors" }),
+    el("div", { class: "actions", style: "margin-top:10px" }, buttons));
+}
+
+function renderGeneration(item) {
+  if (!item.generation) return null;
+  return el("details", { class: "card" },
+    el("summary", {}, "생성 계획 (참고용 · 라벨은 계획이 아니라 리뷰 원문을 기준으로 답니다)"),
+    el("pre", {}, JSON.stringify(item.generation, null, 2)));
+}
+
+// ---------- 단축키 ----------
+
+document.addEventListener("keydown", event => {
+  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); decide("approve"); return; }
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+  if (event.key === "j") move(1);
+  if (event.key === "k") move(-1);
+});
+
+load();
+</script>
+</body>
+</html>
