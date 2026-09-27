@@ -45,9 +45,9 @@ Replies, 💡 explanations and commit messages stay Korean.
 - Output shape: `{"traveler_context": [...], "aspects": [{"category",
   "attribute", "sentiment", "evidence"}]}`. `evidence` is a verbatim span of the
   review, or, for a label derived from place facts, the fact it rests on, written
-  `place:<field>=<value>` (e.g. `place:content_type_id=14`). A model trained on
+  `place:<field>=<value>` (e.g. `place:class_code=NA020100`). A model trained on
   place-derived labels gets those facts in its input too.
-- `src/travel_planner/schema.py` holds the aspects and their allowed values;
+- `datas/cjm/schema.py` holds the aspects and their allowed values;
   `docs/annotation-guideline.md` holds the labeling rules.
 - **Gold** is data a person compared against the source and approved, whoever
   drafted it. **Silver** is Teacher-LLM output that passed only automatic checks
