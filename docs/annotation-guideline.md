@@ -1,7 +1,7 @@
 # 라벨링 가이드라인 (초안)
 
 사람과 Teacher LLM이 같은 리뷰에 같은 라벨을 달도록 하는 규칙입니다.
-허용값 목록은 [`src/travel_planner/schema.py`](../src/travel_planner/schema.py)가 기준이고,
+허용값 목록은 [`datas/cjm/schema.py`](../datas/cjm/schema.py)가 기준이고,
 이 문서는 **그 값을 언제 어떻게 고르는지**를 정합니다. 파일럿 어노테이션 후 확정합니다.
 
 ## 1. 레코드 형식
@@ -91,16 +91,41 @@ JSONL 한 줄이 리뷰 한 건입니다.
 리뷰가 해당 aspect를 말하지 않을 때, **아래 규칙이 있는 aspect만** 장소 정보로 답니다.
 sentiment는 장소 정보만으로는 평가를 알 수 없으므로 `neutral`입니다.
 
-| aspect | 장소 정보 | 규칙 | 상태 |
+| aspect | 장소 정보 | 규칙 |
+|---|---|---|
+| `weather_sensitivity` | `class_code` 앞 4자리 | 실외 분류 → `high`, 실내 분류 → `low` (아래 표) |
+| `stay_duration` | `class_code` 앞 4자리 | 분명한 분류만 추정 (아래 표). 관광지에는 TourAPI 규모 필드가 없어서 분류로 대신한다 |
+| `parking_availability` | `parking` | "불가"·"없음"이 있으면 `unavailable`, "가능"·"있음"이 있으면 `available`. 그 밖의 값(예: 원본 오류 "연중무휴")은 달지 않음 |
+
+분류 코드 표 (초안, `datas/cjm/extract_labels.py`와 같다). 실내·실외가 섞인 분류는 넣지 않는다:
+EX05 온천·치유의숲, EX07 체험시설, VE01 전망대(날씨), VE02 테마파크·아쿠아리움, LS01 루지·아이스링크·걷기길.
+
+| 분류 | 예 | `weather_sensitivity` | `stay_duration` |
 |---|---|---|---|
-| `weather_sensitivity` | `content_type_id` | 12 관광지 → `high` (실외), 28 레포츠 → `high` (실외), 14 문화시설 → `low` (실내) | 초안. 분류 코드(`class_code`)로 예외를 보정할 예정 (실내 관광지 등) |
-| `parking_availability` | `parking` | "가능", "있음" → `available` / "불가", "없음" → `unavailable` / 대수가 적거나 조건부 → `limited` | TourAPI 주차 필드를 실제로 받은 뒤 값 형태를 보고 확정 |
-| `stay_duration` | 규모 필드 (미정) | 규모가 크면 `long` | TourAPI `detailIntro2`의 규모 필드를 확인한 뒤 확정 |
+| EX03 | 어촌 체험마을 | high | |
+| EX06 | 영화 촬영소, 영화의전당 | low | medium |
+| HS01 | 정자, 향교 | high | short |
+| HS03 | 사찰 | high | |
+| NA01 | 산, 숲, 계곡 | high | |
+| NA02 | 해수욕장 | high | |
+| NA04 | 자연휴양림, 수목원 | high | long |
+| NA05 | 해안 산책로 | high | |
+| VE01 | 전망대 | | short |
+| VE03 | 공원 | high | |
+| VE04 | 마을, 거리 | high | |
+| VE05 | 관광특구 | high | |
+| VE06 | 공연장 | low | |
+| VE07 | 미술관, 전시관 | low | medium |
+| VE09 | 도서관, 문화원 | low | |
+| VE10 | 체육문화센터 | low | |
+| VE12 | 서점, 자료실 | low | |
+| AC05 | 캠핑장, 글램핑 | high | long |
+| LS02 | 서핑, 요트 | high | |
 
 예:
 
 ```json
-{"category": "weather_sensitivity", "attribute": "low", "sentiment": "neutral", "evidence": "place:content_type_id=14"}
+{"category": "weather_sensitivity", "attribute": "high", "sentiment": "neutral", "evidence": "place:class_code=NA020100"}
 ```
 
 ## 6. aspect별 메모
