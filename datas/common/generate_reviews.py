@@ -4,8 +4,8 @@
 어떤 aspect를 어떤 상태로 넣으라고 시켰는지(생성 계획)는 레코드의 generation 필드에 남겨,
 나중에 라벨과 비교하는 분석에 쓴다.
 
-사용법:
-  uv run python datas/cjm/generate_reviews.py --category restaurant --count 20 \\
+사용법 (보통은 make_silver.py가 대신 부른다):
+  uv run python datas/common/generate_reviews.py --member cjm --category restaurant --count 20 \\
       --out datas/cjm/out/generated/pilot_restaurant.jsonl
 
 같은 --seed로 다시 실행하면 이미 만든 review_id는 건너뛰고 이어서 만든다.
@@ -21,16 +21,17 @@ from typing import Final
 import requests
 
 from ollama_client import DEFAULT_MODEL, chat_json, check_ollama
+from paths import load_places
 from schema import (
     ASPECT_NAMES_KO,
     ATTRIBUTES,
     CATEGORY_NAMES_KO,
+    DISTRICT_NAMES_KO,
     TRAVELER_CONTEXTS,
     TRAVELER_NAMES_KO,
     VALUE_NAMES_KO,
 )
 
-HERE: Final = Path(__file__).parent
 TEMPERATURE: Final = 0.9  # 높게 둬서 리뷰 문장이 다양하게 나오게 한다
 
 # 프롬프트에 보여줄 장소 정보. 여기에 없는 facts(content_type_id 등 내부 코드)는 보여주지 않는다.
@@ -82,9 +83,12 @@ class ReviewPlan:
 # ---------- 생성 계획 ----------
 
 
-def load_places(places_dir: Path, category: str) -> list[dict]:
-    path = places_dir / f"places_{category}.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+def places_of(member: str, category: str) -> list[dict]:
+    """팀원 한 명의 장소 중 한 카테고리. 파일에 적힌 순서를 지켜서 같은 seed면 같은 계획이 나온다."""
+    places = [place for place in load_places(member).values() if place["category"] == category]
+    if not places:
+        raise SystemExit(f"{member}의 {category} 장소가 없습니다. datas/{member}/out/places_{category}.json을 확인하세요.")
+    return places
 
 
 def assign_places(places: list[dict], count: int, max_per_place: int, rng: random.Random) -> list[dict]:
@@ -148,9 +152,14 @@ def describe_experience(plan: ReviewPlan) -> list[str]:
     return lines
 
 
+def region_of(place: dict) -> str:
+    district = DISTRICT_NAMES_KO.get(place.get("district") or "")
+    return f"부산 {district}" if district else "부산"
+
+
 def build_prompt(plan: ReviewPlan) -> str:
     return "\n".join([
-        "당신은 부산 해운대·기장 여행을 다녀온 한국인 여행자입니다.",
+        f"당신은 {region_of(plan.place)} 여행을 다녀온 한국인 여행자입니다.",
         "아래 장소에 대한 솔직한 방문 리뷰를 한국어로 한 편 써 주세요.",
         "",
         "[장소]",
@@ -240,17 +249,17 @@ def generate(plans: list[ReviewPlan], model: str, out_path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="장소 정보로 합성 리뷰 생성 (로컬 Ollama)")
+    parser.add_argument("--member", required=True, help="장소를 가져올 팀원 이니셜 (datas/<이니셜>/out)")
     parser.add_argument("--category", required=True, choices=sorted(ATTRIBUTES))
     parser.add_argument("--count", type=int, required=True, help="만들 리뷰 수")
     parser.add_argument("--out", type=Path, required=True, help="결과 JSONL (이미 있으면 이어서 씀)")
-    parser.add_argument("--places", type=Path, default=HERE / "out", help="places_*.json 폴더")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-per-place", type=int, default=20, help="장소 한 곳당 최대 리뷰 수")
     args = parser.parse_args()
 
     check_ollama(args.model)
-    places = load_places(args.places, args.category)
+    places = places_of(args.member, args.category)
     plans = make_plans(places, args.category, args.count, args.max_per_place, args.seed)
     generate(plans, args.model, args.out)
 

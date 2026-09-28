@@ -4,8 +4,10 @@ Silver 조건: JSON 형식, 필수 필드, 허용된 aspect, attribute·sentimen
 evidence가 리뷰 원문 또는 인용한 장소 정보(place:<필드>=<값>)에 있는지.
 규칙은 docs/annotation-guideline.md, 허용값은 schema.py를 따른다.
 
+장소 정보는 팀 전체의 datas/<이니셜>/out/places_*.json에서 찾는다.
+
 사용법:
-  uv run python datas/cjm/label_check.py reviews.jsonl --out silver.jsonl
+  uv run python datas/common/label_check.py labeled.jsonl --out silver.jsonl
 """
 
 import argparse
@@ -13,9 +15,9 @@ import json
 from pathlib import Path
 from typing import Final
 
+from paths import load_places
 from schema import ASPECTS, ATTRIBUTES, SENTIMENTS, TRAVELER_CONTEXTS
 
-HERE: Final = Path(__file__).parent
 REQUIRED_FIELDS: Final = ("review_id", "place_id", "category", "synthetic", "review", "label")
 ASPECT_FIELDS: Final = ("category", "attribute", "sentiment", "evidence")
 PLACE_PREFIX: Final = "place:"
@@ -114,14 +116,6 @@ def check_record(record: dict, place: dict | None) -> list[str]:
 # ---------- 파일 처리 ----------
 
 
-def load_places(places_dir: Path) -> dict[str, dict]:
-    places: dict[str, dict] = {}
-    for path in sorted(places_dir.glob("places_*.json")):
-        for place in json.loads(path.read_text(encoding="utf-8")):
-            places[place["place_id"]] = place
-    return places
-
-
 def check_line(line: str, places: dict[str, dict]) -> tuple[dict | None, list[str]]:
     """JSONL 한 줄을 파싱하고 검사한다. (레코드, 문제 목록)을 돌려준다."""
     try:
@@ -159,11 +153,10 @@ def check_file(records_path: Path, places: dict[str, dict], out_path: Path) -> N
 def main() -> None:
     parser = argparse.ArgumentParser(description="라벨 레코드의 Silver 조건 검사")
     parser.add_argument("records", type=Path, help="검사할 JSONL 파일")
-    parser.add_argument("--places", type=Path, default=HERE / "out", help="places_*.json 폴더")
     parser.add_argument("--out", type=Path, required=True, help="통과한 레코드를 쓸 JSONL 파일")
     args = parser.parse_args()
 
-    check_file(args.records, load_places(args.places), args.out)
+    check_file(args.records, load_places(), args.out)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ Gold 레코드에는 원래 Silver 라벨(silver_label)을 남겨, 나중에 Sil
 결정은 언제든 바꿀 수 있고, 바꿀 때마다 두 파일을 다시 쓴다.
 
 사용법:
-  uv run python datas/cjm/review_gold.py datas/cjm/out/runs/pilot/silver.jsonl --reviewer sunub
+  uv run python datas/common/review_gold.py datas/cjm/out/runs/pilot/test/silver.jsonl --reviewer sunub
   → 브라우저에서 http://127.0.0.1:8765 이 열린다. 끝내려면 터미널에서 Ctrl+C.
 """
 
@@ -23,7 +23,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Final
 
-from label_check import check_record, load_places
+from label_check import check_record
+from paths import load_places
 from schema import (
     ASPECT_NAMES_KO,
     ATTRIBUTES,
@@ -132,10 +133,10 @@ class ReviewSession:
         write_jsonl(self.discarded_path, list(self.discarded.values()))
 
 
-def open_session(silver_path: Path, places_dir: Path, reviewer: str) -> ReviewSession:
+def open_session(silver_path: Path, reviewer: str) -> ReviewSession:
     session = ReviewSession(
         silver={record["review_id"]: record for record in read_jsonl(silver_path)},
-        places=load_places(places_dir),
+        places=load_places(),
         gold_path=silver_path.with_name("gold.jsonl"),
         discarded_path=silver_path.with_name("discarded.jsonl"),
         reviewer=reviewer,
@@ -229,12 +230,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Silver 리뷰를 브라우저에서 검수해 Gold 만들기")
     parser.add_argument("silver", type=Path, help="make_silver가 만든 silver.jsonl")
     parser.add_argument("--reviewer", required=True, help="검수자 이름 (Gold 레코드에 남는다)")
-    parser.add_argument("--places", type=Path, default=HERE / "out", help="places_*.json 폴더")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true", help="브라우저를 자동으로 열지 않음")
     args = parser.parse_args()
 
-    session = open_session(args.silver, args.places, args.reviewer)
+    session = open_session(args.silver, args.reviewer)
     if not session.silver:
         raise SystemExit(f"검수할 리뷰가 없습니다: {args.silver}")
 

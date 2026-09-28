@@ -9,9 +9,9 @@
 결과는 입력 레코드에 label 필드를 더한 JSONL이다. 그다음 label_check로 Silver를 가린다.
 
 사용법:
-  uv run python datas/cjm/extract_labels.py datas/cjm/out/generated/pilot_restaurant.jsonl \\
+  uv run python datas/common/extract_labels.py datas/cjm/out/generated/pilot_restaurant.jsonl \\
       --out datas/cjm/out/generated/pilot_restaurant.labeled.jsonl
-  uv run python datas/cjm/label_check.py datas/cjm/out/generated/pilot_restaurant.labeled.jsonl \\
+  uv run python datas/common/label_check.py datas/cjm/out/generated/pilot_restaurant.labeled.jsonl \\
       --out datas/cjm/out/generated/pilot_restaurant.silver.jsonl
 """
 
@@ -22,8 +22,8 @@ from typing import Final
 
 import requests
 
-from label_check import load_places
 from ollama_client import DEFAULT_MODEL, chat_json, check_ollama
+from paths import load_places
 from schema import (
     ASPECT_NAMES_KO,
     ATTRIBUTES,
@@ -34,7 +34,6 @@ from schema import (
     VALUE_NAMES_KO,
 )
 
-HERE: Final = Path(__file__).parent
 TEMPERATURE: Final = 0.0  # 라벨은 매번 같은 답이 나와야 하므로 무작위성을 끈다
 SEED: Final = 0
 
@@ -273,12 +272,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="합성 리뷰에 라벨 달기 (로컬 Ollama)")
     parser.add_argument("reviews", type=Path, help="generate_reviews가 만든 JSONL")
     parser.add_argument("--out", type=Path, required=True, help="라벨을 붙인 JSONL (이미 있으면 이어서 씀)")
-    parser.add_argument("--places", type=Path, default=HERE / "out", help="places_*.json 폴더")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args()
 
     check_ollama(args.model)
-    extract(read_jsonl(args.reviews), load_places(args.places), args.model, args.out)
+    extract(read_jsonl(args.reviews), load_places(), args.model, args.out)
 
 
 if __name__ == "__main__":

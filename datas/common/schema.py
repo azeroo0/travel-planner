@@ -1,6 +1,59 @@
+"""팀 공통 스키마. 장소 레코드(Place)와 라벨(Label)의 모양, 허용값, 한국어 이름을 정한다.
+
+팀원마다 원본 데이터는 달라도, datas/<이니셜>/out/ 에 쓰는 결과는 모두 이 모양을 따른다.
+"""
+
 from typing import Final, Literal, TypedDict
 
 Category = Literal["hotel", "restaurant", "attraction"]
+CATEGORIES: Final[tuple[Category, ...]] = ("hotel", "restaurant", "attraction")
+
+# ---------- 장소 ----------
+
+# 부산 16개 구·군. 영문 id는 폴더·파일·분할에서 쓰고, 한국어 이름은 주소에서 구·군을 찾을 때 쓴다.
+DISTRICT_NAMES_KO: Final[dict[str, str]] = {
+    "jung": "중구",
+    "seo": "서구",
+    "dong": "동구",
+    "yeongdo": "영도구",
+    "busanjin": "부산진구",
+    "dongnae": "동래구",
+    "nam": "남구",
+    "buk": "북구",
+    "haeundae": "해운대구",
+    "saha": "사하구",
+    "geumjeong": "금정구",
+    "gangseo": "강서구",
+    "yeonje": "연제구",
+    "suyeong": "수영구",
+    "sasang": "사상구",
+    "gijang": "기장군",
+}
+_DISTRICT_BY_NAME: Final = {name: district for district, name in DISTRICT_NAMES_KO.items()}
+
+
+def district_of(address: str) -> str | None:
+    """주소에서 부산 구·군을 찾아 영문 id로 돌려준다. '부산광역시 해운대구 ...' → 'haeundae'
+
+    띄어쓰기 단위로 정확히 비교해서 '부산진구' 안의 '진구' 같은 부분 일치는 생기지 않는다.
+    """
+    return next((_DISTRICT_BY_NAME[word] for word in address.split() if word in _DISTRICT_BY_NAME), None)
+
+
+class Place(TypedDict):
+    place_id: str  # "<출처>:<원본 ID>" (예: tourapi:2872583). 팀 전체에서 겹치지 않게 출처를 붙인다
+    category: Category
+    district: str | None  # DISTRICT_NAMES_KO의 영문 id. 알 수 없으면 None
+    name: str
+    address: str
+    lat: float | None
+    lng: float | None
+    phone: str | None
+    sources: list[str]
+    facts: dict[str, str | int]  # 메뉴·주차·분류 코드처럼 장소에 대한 사실 (라벨 근거로도 쓴다)
+
+
+# ---------- 라벨 ----------
 
 HotelAspect = Literal[
     "cleanliness",

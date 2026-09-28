@@ -1,26 +1,27 @@
-"""해운대구·기장군의 호텔·식당·관광지 장소 목록을 카테고리별 JSON으로 정리한다.
+"""부산의 정한 구·군에서 호텔·식당·관광지 장소 목록을 모아 공통 형식(schema.Place)으로 저장한다.
 
 출처
   1. TourAPI (한국관광공사)           호텔·식당·관광지
   2. 부산광역시 명소 API              관광지
   3. 부산광역시 맛집 API              식당
-  4. 해운대구·기장군 숙박업 현황 CSV  호텔
+  4. 구·군 숙박업 현황 CSV           호텔 (팀원 폴더에 있는 '*숙박*.csv'를 찾아 읽는다)
 
-결과: out/places_{hotel,restaurant,attraction}.json
+결과: datas/<이니셜>/out/places_{hotel,restaurant,attraction}.json
 주차·메뉴·이용 시간 같은 소개 정보는 TourAPI detailIntro2에서만 받는다. 장소 1곳당 1회 호출한다.
 
 한 출처·요청·레코드가 실패해도 전체를 멈추지 않는다. 실패한 부분만 빼고 저장한 뒤,
 무엇을 건너뛰었는지 마지막에 요약해서 보여준다.
 
 TourAPI 하루 한도(개발 계정 1,000회)를 지키는 장치
-  - 캐시: 성공한 응답은 out/cache/tourapi/에 저장하고, 다음 실행부터는 호출하지 않는다.
+  - 캐시: 성공한 응답은 datas/<이니셜>/out/cache/tourapi/에 저장하고, 다음 실행부터는 호출하지 않는다.
   - 호출 예산: 이번 실행의 실제 호출이 --max-calls에 닿으면 요청을 보내기 전에 멈춘다.
   - 차단기: 연속 3회 실패하거나 인증·한도 오류가 오면 TourAPI를 더 부르지 않는다.
   - --dry-run: 네트워크 없이 캐시만 보고 필요한 호출 수를 센다.
 
 사용법:
-  uv run python datas/cjm/collect_places.py --dry-run
-  uv run python datas/cjm/collect_places.py
+  uv run python datas/common/collect_places.py --member cjm --districts haeundae gijang --dry-run
+  uv run python datas/common/collect_places.py --member cjm --districts haeundae gijang
+구·군 id는 schema.DISTRICT_NAMES_KO를 본다 (예: suyeong, busanjin, jung).
 """
 
 import argparse
@@ -35,32 +36,40 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import Final, Literal, TypedDict
+from typing import Final
 
 import requests
 from dotenv import load_dotenv
 
+from paths import member_dir
+from schema import CATEGORIES, DISTRICT_NAMES_KO, Category, Place, district_of
+
 load_dotenv()
 
-HERE: Final = Path(__file__).parent
-OUT_DIR: Final = HERE / "out"
 
-Category = Literal["hotel", "restaurant", "attraction"]
-District = Literal["haeundae", "gijang"]
-CATEGORIES: Final[tuple[Category, ...]] = ("hotel", "restaurant", "attraction")
+@dataclass
+class Target:
+    """이번 실행에서 모을 팀원과 구·군. main에서 채운다."""
+
+    member_dir: Path = Path(".")
+    districts: tuple[str, ...] = ()
+
+    @property
+    def out_dir(self) -> Path:
+        return self.member_dir / "out"
+
+    @property
+    def cache_dir(self) -> Path:
+        return self.out_dir / "cache" / "tourapi"
+
+    def sigungu(self) -> dict[str, str]:
+        return {district: SIGUNGU_CODES[district] for district in self.districts}
+
+    def wants(self, district: str | None) -> bool:
+        return district in self.districts
 
 
-class Place(TypedDict):
-    place_id: str
-    category: Category
-    district: District
-    name: str
-    address: str
-    lat: float | None
-    lng: float | None
-    phone: str | None
-    sources: list[str]
-    facts: dict[str, str | int]
+TARGET: Final = Target()
 
 
 # ---------- 실패 처리 ----------
@@ -126,14 +135,6 @@ def clean_phone(text: object) -> str | None:
     return phone.replace(" ", "") if phone else None
 
 
-def district_of(text: str) -> District | None:
-    if "해운대구" in text:
-        return "haeundae"
-    if "기장군" in text:
-        return "gijang"
-    return None
-
-
 def pick_facts(item: dict, fields: dict[str, str]) -> dict[str, str | int]:
     """원본 필드 이름을 우리 필드 이름으로 바꾸면서 빈 값은 버린다."""
     facts: dict[str, str | int] = {}
@@ -185,9 +186,14 @@ TOUR_CONTENT_TYPES: Final[list[tuple[Category, str]]] = [
     ("attraction", "14"),
     ("attraction", "28"),
 ]
-SIGUNGU: Final[dict[District, str]] = {"haeundae": "350", "gijang": "710"}
+# TourAPI lDongSignguCd: 부산(26) 안의 법정동 시군구 코드 뒤 세 자리
+SIGUNGU_CODES: Final[dict[str, str]] = {
+    "jung": "110", "seo": "140", "dong": "170", "yeongdo": "200", "busanjin": "230", "dongnae": "260",
+    "nam": "290", "buk": "320", "haeundae": "350", "saha": "380", "geumjeong": "410", "gangseo": "440",
+    "yeonje": "470", "suyeong": "500", "sasang": "530", "gijang": "710",
+}  # fmt: skip
 ROWS_PER_PAGE: Final = 100
-MAX_PAGES: Final = 20  # 무한 루프 안전장치: 해운대·기장은 조합당 2페이지면 충분
+MAX_PAGES: Final = 20  # 무한 루프 안전장치: 구·군 하나는 조합당 몇 페이지면 충분
 
 
 # contentTypeId별 detailIntro2 필드 → facts 키. 필드 이름이 타입마다 다르다.
@@ -236,7 +242,6 @@ FLAG_VALUES: Final[dict[str, str]] = {"0": "없음", "1": "있음"}  # kidsfacil
 
 # ---------- TourAPI 호출 관리: 캐시 · 호출 예산 · 차단기 ----------
 
-CACHE_DIR: Final = OUT_DIR / "cache" / "tourapi"
 DEFAULT_MAX_CALLS: Final = 900  # 개발 계정 하루 한도 1,000회보다 여유를 둔다
 MAX_CONSECUTIVE_FAILURES: Final = 3
 SECONDS_BETWEEN_CALLS: Final = 0.2
@@ -268,7 +273,7 @@ GUARD = CallGuard()
 
 
 def cache_path(operation: str, key: str) -> Path:
-    return CACHE_DIR / operation / f"{key}.json"
+    return TARGET.cache_dir / operation / f"{key}.json"
 
 
 def read_cache(operation: str, key: str) -> dict | None:
@@ -391,7 +396,7 @@ def fetch_tourapi_items(content_type: str, sigungu: str, where: str) -> list[dic
     return items
 
 
-def tourapi_to_place(item: dict, category: Category, district: District) -> Place:
+def tourapi_to_place(item: dict, category: Category, district: str) -> Place:
     return {
         "place_id": f"tourapi:{item['contentid']}",
         "category": category,
@@ -408,7 +413,7 @@ def tourapi_to_place(item: dict, category: Category, district: District) -> Plac
 
 def load_tourapi() -> list[Place]:
     places: list[Place] = []
-    for (category, content_type), (district, sigungu) in product(TOUR_CONTENT_TYPES, SIGUNGU.items()):
+    for (category, content_type), (district, sigungu) in product(TOUR_CONTENT_TYPES, TARGET.sigungu().items()):
         where = f"TourAPI {category}({content_type})/{district}"
         try:
             items = fetch_tourapi_items(content_type, sigungu, where)
@@ -480,7 +485,7 @@ def plan_tourapi_calls() -> None:
     """네트워크를 쓰지 않고, 캐시만 보고 실제 실행 때 필요한 TourAPI 호출 수를 출력한다."""
     list_calls = intro_calls = 0
     unknown: list[str] = []
-    for (category, content_type), (district, sigungu) in product(TOUR_CONTENT_TYPES, SIGUNGU.items()):
+    for (category, content_type), (district, sigungu) in product(TOUR_CONTENT_TYPES, TARGET.sigungu().items()):
         combo_list, combo_intro, known = count_combo_calls(content_type, sigungu)
         list_calls += combo_list
         intro_calls += combo_intro
@@ -557,7 +562,7 @@ def fetch_busan_items(api: BusanApi) -> list[dict]:
 
 def busan_to_place(item: dict, api: BusanApi) -> Place | None:
     district = district_of(item["GUGUN_NM"])
-    if district is None:
+    if not TARGET.wants(district):
         return None
 
     address = item["ADDR1"].strip()
@@ -588,23 +593,27 @@ def load_busan_api(api: BusanApi) -> list[Place]:
 
 # ---------- 출처 4: 숙박업 현황 CSV ----------
 
-# 해운대구 파일은 CP949, 기장군 파일은 UTF-8이다. 열 구성도 서로 조금 다르다.
-LODGING_CSVS: Final[list[tuple[Path, str]]] = [
-    (HERE / "부산광역시 해운대구_숙박업 현황_20260615.csv", "cp949"),
-    (HERE / "부산광역시_기장군_숙박업소현황_20260623.csv", "utf-8-sig"),
-]
+# 구·군마다 파일 인코딩(CP949 또는 UTF-8)과 열 구성이 조금씩 다르다.
+LODGING_CSV_PATTERN: Final = "*숙박*.csv"
+CSV_ENCODINGS: Final = ("utf-8-sig", "cp949")
 
 
-def read_csv(path: Path, encoding: str) -> list[dict[str, str]]:
-    with open(path, encoding=encoding, newline="") as f:
-        return list(csv.DictReader(f))
+def read_csv(path: Path) -> list[dict[str, str]]:
+    """UTF-8로 읽어 보고, 안 되면 CP949로 읽는다."""
+    for encoding in CSV_ENCODINGS:
+        try:
+            with open(path, encoding=encoding, newline="") as f:
+                return list(csv.DictReader(f))
+        except UnicodeDecodeError:
+            continue
+    raise ValueError(f"인코딩을 알 수 없음 ({', '.join(CSV_ENCODINGS)} 모두 실패)")
 
 
 def lodging_to_place(row: dict[str, str]) -> Place | None:
     name = row["업소명"].strip()
     address = row["영업소 주소(도로명)"].strip()
     district = district_of(address)
-    if district is None:
+    if not TARGET.wants(district):
         return None
 
     facts = pick_facts(row, {"업종명": "lodging_type"})  # 기장군 파일에만 있다
@@ -630,9 +639,12 @@ def lodging_to_place(row: dict[str, str]) -> Place | None:
 
 def load_lodging_csvs() -> list[Place]:
     places: list[Place] = []
-    for path, encoding in LODGING_CSVS:
+    paths = sorted(p for p in TARGET.member_dir.rglob(LODGING_CSV_PATTERN) if "out" not in p.relative_to(TARGET.member_dir).parts)
+    if not paths:
+        warn("숙박 CSV", f"{TARGET.member_dir}에 '{LODGING_CSV_PATTERN}' 파일이 없음 → 건너뜀")
+    for path in paths:
         try:
-            rows = read_csv(path, encoding)
+            rows = read_csv(path)
         except SKIPPABLE as e:
             warn(path.name, f"{describe(e)} → 이 파일 전체를 건너뜀")
             continue
@@ -679,13 +691,13 @@ def dedup(places: list[Place]) -> list[Place]:
 
 
 def write_by_category(places: list[Place]) -> None:
-    OUT_DIR.mkdir(exist_ok=True)
+    TARGET.out_dir.mkdir(exist_ok=True)
     for category in CATEGORIES:
         rows = sorted(
             (p for p in places if p["category"] == category),
             key=lambda p: p["place_id"],
         )
-        out_path = OUT_DIR / f"places_{category}.json"
+        out_path = TARGET.out_dir / f"places_{category}.json"
         out_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"{category}: {len(rows)}건 → {out_path.name}")
 
@@ -703,7 +715,9 @@ def print_warnings() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="해운대·기장 장소 목록 수집")
+    parser = argparse.ArgumentParser(description="부산 구·군 장소 목록 수집 → datas/<이니셜>/out/")
+    parser.add_argument("--member", required=True, help="결과를 쓸 팀원 이니셜")
+    parser.add_argument("--districts", nargs="+", required=True, choices=sorted(DISTRICT_NAMES_KO), help="모을 구·군")
     parser.add_argument("--dry-run", action="store_true", help="네트워크 없이 필요한 TourAPI 호출 수만 센다")
     parser.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS, help="이번 실행의 TourAPI 호출 상한")
     parser.add_argument("--no-cache", action="store_true", help="캐시를 무시하고 다시 받는다 (호출이 늘어난다)")
@@ -712,6 +726,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    TARGET.member_dir = member_dir(args.member)
+    TARGET.districts = tuple(args.districts)
     GUARD.max_calls = args.max_calls
     GUARD.use_cache = not args.no_cache
     if args.dry_run:
