@@ -23,6 +23,7 @@ import json
 import math
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,14 +32,15 @@ from typing import Final
 import requests
 from dotenv import load_dotenv
 
-from label_check import load_places
-
 HERE: Final = Path(__file__).parent
+sys.path.insert(0, str(HERE.parent / "common"))  # 팀 공통 모듈(datas/common)을 가져온다
+
+from paths import SPLIT_PATH, load_places  # noqa: E402
+
 OUT_DIR: Final = HERE / "out" / "real"
 MATCHES_PATH: Final = OUT_DIR / "tripadvisor_locations.json"  # place_id → Location ID (약관상 저장 허용)
 REVIEWS_PATH: Final = OUT_DIR / "tripadvisor_reviews.jsonl"
 USAGE_PATH: Final = OUT_DIR / "tripadvisor_usage.json"  # 실행을 여러 번 해도 누적 과금을 잃지 않게 파일에 남긴다
-SPLIT_PATH: Final = HERE / "out" / "split.json"
 
 BASE_URL: Final = "https://terra.tripadvisor.com/api"
 SEARCH_SIZE: Final = 3  # 검색은 돌려받은 수만큼 과금되므로 후보를 3개로 줄인다
@@ -293,7 +295,6 @@ def print_plan(candidates: list[dict], matches: dict[str, dict]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Tripadvisor 실제 리뷰 수집 (평가용, 커밋 금지)")
-    parser.add_argument("--places", type=Path, default=HERE / "out", help="places_*.json 폴더")
     parser.add_argument("--splits", nargs="+", default=["test"], help="대상 분할 (기본: test)")
     parser.add_argument("--max-places", type=int, default=60)
     parser.add_argument("--max-billable", type=int, default=300, help="이번 실행의 과금 상한")
@@ -302,7 +303,7 @@ def main() -> None:
 
     load_dotenv(HERE.parent.parent / ".env")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    candidates = pick_candidates(load_places(args.places), set(args.splits), args.max_places)
+    candidates = pick_candidates(load_places("cjm"), set(args.splits), args.max_places)
     matches = load_matches()
     print_plan(candidates, matches)
     if args.dry_run:

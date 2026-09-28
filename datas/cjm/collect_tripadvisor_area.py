@@ -44,11 +44,10 @@ from collect_tripadvisor import (
     load_usage,
     primary_korean,
 )
-from label_check import load_places
+from paths import SPLIT_PATH, load_places
 
 STATE_PATH: Final = OUT_DIR / "tripadvisor_area.json"
 REVIEWS_PATH: Final = OUT_DIR / "tripadvisor_area_reviews.jsonl"
-SPLIT_PATH: Final = HERE / "out" / "split.json"
 PAGE_SIZE: Final = 20  # 최대값. 과금은 돌려받은 장소 수만큼이다
 
 # 사각형 범위는 50㎢를 넘으면 400이라, 지역마다 중심 한 곳 + 반경(최대 8km)으로 찾는다.
@@ -200,7 +199,7 @@ def allow_step(targets: list[str], state: dict) -> None:
 
 
 def reviews_step(targets: list[str], state: dict, budget: Budget) -> None:
-    places = list(load_places(HERE / "out").values())
+    places = list(load_places("cjm").values())
     split = json.loads(SPLIT_PATH.read_text(encoding="utf-8")) if SPLIT_PATH.exists() else {}
     print(f"\n리뷰 받기: {len(targets)}곳")
     with open(REVIEWS_PATH, "a", encoding="utf-8") as out:

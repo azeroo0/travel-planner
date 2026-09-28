@@ -43,13 +43,12 @@ from collect_tripadvisor import (
     primary_korean,
 )
 from collect_tripadvisor_area import match_our_place
-from label_check import load_places
+from paths import SPLIT_PATH, load_places
 
 FAMOUS_DIR: Final = OUT_DIR / "tripadvisor_famous"
 LOCATIONS_PATH: Final = FAMOUS_DIR / "locations.json"
 REVIEWS_PATH: Final = FAMOUS_DIR / "reviews.jsonl"
 BY_PLACE_PATH: Final = FAMOUS_DIR / "reviews_by_place.json"
-SPLIT_PATH: Final = HERE / "out" / "split.json"
 DISTRICT_NAMES: Final = {"haeundae": ("해운대", "haeundae"), "gijang": ("기장", "gijang")}
 TA_CATEGORY: Final = {"hotel": "HOTEL", "restaurant": "RESTAURANT", "attraction": "ATTRACTION"}
 
@@ -169,7 +168,7 @@ def summarize(place: Famous, location: dict | None, places: list[dict], split: d
 
 
 def search_step(locations: dict[str, dict], budget: Budget) -> None:
-    places = list(load_places(HERE / "out").values())
+    places = list(load_places("cjm").values())
     split = json.loads(SPLIT_PATH.read_text(encoding="utf-8")) if SPLIT_PATH.exists() else {}
     todo = [place for place in FAMOUS if place.key not in locations]
     print(f"\n[1/3] 검색 {len(todo)}곳 (이미 찾은 {len(FAMOUS) - len(todo)}곳은 건너뜀)")
