@@ -9,3 +9,10 @@ wheels/
 # Virtual environments
 .venv
 .omx/
+
+# Secrets
+.env
+
+# 팀원별 원본(in)과 생성 결과(out). 커밋하지 않는다
+datas/*/in/
+datas/*/out/
