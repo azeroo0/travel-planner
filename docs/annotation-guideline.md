@@ -1,7 +1,7 @@
 # 라벨링 가이드라인 (초안)
 
 사람과 Teacher LLM이 같은 리뷰에 같은 라벨을 달도록 하는 규칙입니다.
-허용값 목록은 [`datas/cjm/schema.py`](../datas/cjm/schema.py)가 기준이고,
+허용값 목록은 [`datas/common/schema.py`](../datas/common/schema.py)가 기준이고,
 이 문서는 **그 값을 언제 어떻게 고르는지**를 정합니다. 파일럿 어노테이션 후 확정합니다.
 
 ## 1. 레코드 형식
@@ -26,7 +26,7 @@ JSONL 한 줄이 리뷰 한 건입니다.
 }
 ```
 
-- `place_id`는 `collect_places.py` 결과(`datas/cjm/out/places_*.json`)의 장소와 연결됩니다.
+- `place_id`는 팀원별 공통 형식 결과(`datas/<이니셜>/out/places_*.json`)의 장소와 연결됩니다.
 - `category`는 장소의 카테고리이고, `aspects[].category`는 그 카테고리의 aspect 중 하나입니다.
 - `tier`는 자동 검사를 통과하면 `silver`, 사람이 원문과 대조해 승인하면 `gold`입니다.
 
@@ -97,7 +97,7 @@ sentiment는 장소 정보만으로는 평가를 알 수 없으므로 `neutral`�
 | `stay_duration` | `class_code` 앞 4자리 | 분명한 분류만 추정 (아래 표). 관광지에는 TourAPI 규모 필드가 없어서 분류로 대신한다 |
 | `parking_availability` | `parking` | "불가"·"없음"이 있으면 `unavailable`, "가능"·"있음"이 있으면 `available`. 그 밖의 값(예: 원본 오류 "연중무휴")은 달지 않음 |
 
-분류 코드 표 (초안, `datas/cjm/extract_labels.py`와 같다). 실내·실외가 섞인 분류는 넣지 않는다:
+분류 코드 표 (초안, `datas/common/extract_labels.py`와 같다). 실내·실외가 섞인 분류는 넣지 않는다:
 EX05 온천·치유의숲, EX07 체험시설, VE01 전망대(날씨), VE02 테마파크·아쿠아리움, LS01 루지·아이스링크·걷기길.
 
 | 분류 | 예 | `weather_sensitivity` | `stay_duration` |
