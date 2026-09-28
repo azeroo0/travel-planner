@@ -47,7 +47,7 @@ Replies, 💡 explanations and commit messages stay Korean.
   review, or, for a label derived from place facts, the fact it rests on, written
   `place:<field>=<value>` (e.g. `place:class_code=NA020100`). A model trained on
   place-derived labels gets those facts in its input too.
-- `datas/cjm/schema.py` holds the aspects and their allowed values;
+- `datas/common/schema.py` holds the place record shape, the aspects, and their allowed values;
   `docs/annotation-guideline.md` holds the labeling rules.
 - **Gold** is data a person compared against the source and approved, whoever
   drafted it. **Silver** is Teacher-LLM output that passed only automatic checks
