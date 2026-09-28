@@ -20,6 +20,7 @@ from typing import Final
 
 import requests
 
+from label_check import is_broken
 from ollama_client import DEFAULT_MODEL, chat_json, check_ollama
 from paths import load_places
 from schema import (
@@ -33,6 +34,8 @@ from schema import (
 )
 
 TEMPERATURE: Final = 0.9  # 높게 둬서 리뷰 문장이 다양하게 나오게 한다
+MAX_ATTEMPTS: Final = 3  # 텍스트가 깨지면 seed를 바꿔 다시 만든다
+RETRY_SEED_STEP: Final = 1_000_000_000  # 다시 만들 때 seed에 더한다. 계획 seed와 겹치지 않을 만큼 크게
 
 # 프롬프트에 보여줄 장소 정보. 여기에 없는 facts(content_type_id 등 내부 코드)는 보여주지 않는다.
 FACT_NAMES_KO: Final[dict[str, str]] = {
@@ -185,18 +188,23 @@ def build_prompt(plan: ReviewPlan) -> str:
 # ---------- 생성 호출 ----------
 
 
-def write_review(prompt: str, model: str, seed: int) -> str:
-    answer = chat_json(prompt, model=model, schema=REVIEW_SCHEMA, temperature=TEMPERATURE, seed=seed)
-    review = answer["review"].strip()
-    if not review:
-        raise ValueError("빈 리뷰")
-    return review
+def write_review(prompt: str, model: str, seed: int) -> tuple[str, int]:
+    """(리뷰, 실제로 쓴 seed). 텍스트가 깨지면 seed를 바꿔 MAX_ATTEMPTS번까지 다시 만든다."""
+    for attempt in range(MAX_ATTEMPTS):
+        used_seed = seed + attempt * RETRY_SEED_STEP
+        answer = chat_json(prompt, model=model, schema=REVIEW_SCHEMA, temperature=TEMPERATURE, seed=used_seed)
+        review = answer["review"].strip()
+        if not review:
+            raise ValueError("빈 리뷰")
+        if not is_broken(review):
+            return review, used_seed
+    raise ValueError(f"{MAX_ATTEMPTS}번 모두 텍스트가 깨짐 (<0x..>)")
 
 
 # ---------- 저장 ----------
 
 
-def to_record(plan: ReviewPlan, review: str, model: str) -> dict:
+def to_record(plan: ReviewPlan, review: str, model: str, seed: int) -> dict:
     return {
         "review_id": plan.review_id,
         "place_id": plan.place["place_id"],
@@ -205,7 +213,7 @@ def to_record(plan: ReviewPlan, review: str, model: str) -> dict:
         "review": review,
         "generation": {
             "model": model,
-            "seed": plan.seed,
+            "seed": seed,  # 실제로 쓴 seed. 다시 만든 경우 계획 seed + RETRY_SEED_STEP의 배수
             "traveler_context": plan.traveler,
             "aspects": [{"category": name, "attribute": value} for name, value in plan.aspects],
             "length": plan.length,
@@ -231,11 +239,11 @@ def generate(plans: list[ReviewPlan], model: str, out_path: Path) -> None:
     with open(out_path, "a", encoding="utf-8") as out:
         for number, plan in enumerate(todo, start=1):
             try:
-                review = write_review(build_prompt(plan), model, plan.seed)
+                review, used_seed = write_review(build_prompt(plan), model, plan.seed)
             except (requests.RequestException, KeyError, ValueError) as e:  # 한 건 실패는 건너뛴다
                 failures.append(f"{plan.review_id}: {type(e).__name__}: {e}")
                 continue
-            out.write(json.dumps(to_record(plan, review, model), ensure_ascii=False) + "\n")
+            out.write(json.dumps(to_record(plan, review, model, used_seed), ensure_ascii=False) + "\n")
             out.flush()  # 중간에 멈춰도 여기까지는 파일에 남는다
             if number % 10 == 0 or number == len(todo):
                 print(f"  {number}/{len(todo)}")

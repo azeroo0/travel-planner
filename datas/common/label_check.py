@@ -1,7 +1,8 @@
 """Teacher LLM이 만든 라벨 레코드가 Silver 조건을 통과하는지 검사한다.
 
-Silver 조건: JSON 형식, 필수 필드, 허용된 aspect, attribute·sentiment·traveler_context 값,
-evidence가 리뷰 원문 또는 인용한 장소 정보(place:<필드>=<값>)에 있는지.
+Silver 조건: JSON 형식, 필수 필드, 리뷰 텍스트가 깨지지 않았는지, 허용된 aspect,
+attribute·sentiment·traveler_context 값, evidence가 리뷰 원문 또는 인용한 장소 정보
+(place:<필드>=<값>)에 있는지.
 규칙은 docs/annotation-guideline.md, 허용값은 schema.py를 따른다.
 
 장소 정보는 팀 전체의 datas/<이니셜>/out/places_*.json에서 찾는다.
@@ -12,6 +13,7 @@ evidence가 리뷰 원문 또는 인용한 장소 정보(place:<필드>=<값>)�
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Final
 
@@ -21,6 +23,12 @@ from schema import ASPECTS, ATTRIBUTES, SENTIMENTS, TRAVELER_CONTEXTS
 REQUIRED_FIELDS: Final = ("review_id", "place_id", "category", "synthetic", "review", "label")
 ASPECT_FIELDS: Final = ("category", "attribute", "sentiment", "evidence")
 PLACE_PREFIX: Final = "place:"
+# 모델이 한글 한 글자(3바이트)를 다 못 만들면 "<0xEB>" 같은 바이트 조각이 그대로 나온다
+BROKEN_BYTES: Final = re.compile(r"<0x[0-9A-Fa-f]{2}>")
+
+
+def is_broken(text: str) -> bool:
+    return bool(BROKEN_BYTES.search(text))
 
 
 # ---------- evidence ----------
@@ -107,6 +115,9 @@ def check_record(record: dict, place: dict | None) -> list[str]:
         errors.append("synthetic은 true/false여야 함")
     if not isinstance(record["review"], str) or not record["review"].strip():
         errors.append("review가 비어 있음")
+        return errors
+    if is_broken(record["review"]):
+        errors.append("리뷰 텍스트가 깨짐 (<0x..> 바이트 조각)")
         return errors
     if place is not None and place["category"] != category:
         errors.append(f"장소 카테고리는 {place['category']}인데 레코드는 {category}")
