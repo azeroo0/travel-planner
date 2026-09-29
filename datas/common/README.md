@@ -128,3 +128,7 @@ uv run python datas/common/review_gold.py datas/<이니셜>/out/runs/real/silver
 | `split_places.py` | 팀 전체 장소 분할, Gold 검수 대기 파일 |
 | `review_gold.py` + `.html` | 브라우저 검수 화면 |
 | `ollama_client.py` | 로컬 Ollama 호출 |
+| `clean_silver.py` | 학습 데이터 정리: 중복 aspect 제거, 장소당 상한, evidence 경계 정규화 → `datasets/v2/` |
+| `normalize_evidence.py` | evidence의 끝 문장부호와 앞의 군더더기 부사를 뗀다 |
+| `build_real_test.py` + `real_test_draft.py` | 실제 Tripadvisor 리뷰 → 실제 리뷰 test (라벨 초안, 사람 승인 전 silver) |
+| `build_manifest.py` | `datasets/v2/manifest.json` 기록 |
