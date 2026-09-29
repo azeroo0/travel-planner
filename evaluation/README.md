@@ -138,6 +138,7 @@ uv run python -m evaluation.error_analysis \
 - Aspect Precision/Recall/F1: `category + attribute + sentiment` 일치
 - Evidence 포함 F1: 위 결과에 Evidence까지 정확히 일치
 - Traveler Context F1
+- Evidence 다중 정답 F1: 위 결과에서 예측 evidence가 사람이 그 aspect에 단 evidence 중 하나와 글자 IoU 0.5 이상 겹치면 일치. 긴 실제 리뷰는 같은 판단을 뒷받침하는 문장이 여럿이라, `test_real_gold`처럼 `label_raw`에 원래 evidence가 남은 Gold에서만 엄격 지표와 달라진다 (합성 test는 IoU 지표와 같다)
 - Evidence 원문 포함 비율
 - Record Exact Match
 - JSON 성공률

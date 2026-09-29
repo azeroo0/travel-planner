@@ -74,6 +74,48 @@ def _overlap_counts(gold: dict[str, dict], pred: dict[str, dict]) -> tuple[int, 
     return tp, predicted, references
 
 
+def _reference_evidence(gold_record: dict[str, Any]) -> dict[tuple, list[str]]:
+    """aspect(category, attribute, sentiment)마다 사람이 근거로 단 구절 전부.
+
+    label에는 중복 제거 규칙으로 하나만 남아 있지만 label_raw에는 사람이 단 원래 구절이 다 있다.
+    긴 리뷰는 같은 판단을 뒷받침하는 문장이 여럿이라 그중 하나만 정답으로 삼으면 정당한 근거도 오답이 된다.
+    """
+    references: dict[tuple, list[str]] = {}
+    raw = gold_record.get("label_raw")
+    for aspects in (_aspects(gold_record), _aspects({"label": raw}) if isinstance(raw, dict) else []):
+        for aspect in aspects:
+            evidence = aspect.get("evidence")
+            if isinstance(evidence, str) and evidence:
+                references.setdefault(_aspect_key(aspect), []).append(evidence)
+    return references
+
+
+def _multi_reference_counts(gold: dict[str, dict], pred: dict[str, dict]) -> tuple[int, int, int]:
+    """category·attribute·sentiment가 같고 예측 evidence가 사람이 단 구절 중 하나와 IoU 임계값 이상 겹치는 쌍을 1:1로 센다."""
+    tp = predicted = references_total = 0
+    for review_id, gold_record in gold.items():
+        source = gold_record.get("review", "")
+        gold_aspects = _aspects(gold_record)
+        pred_aspects = _aspects(pred.get(review_id, {}))
+        references = _reference_evidence(gold_record)
+        predicted += len(pred_aspects)
+        references_total += len(gold_aspects)
+        used: set[int] = set()
+        for gold_aspect in gold_aspects:
+            key = _aspect_key(gold_aspect)
+            best, best_iou = None, EVIDENCE_IOU_THRESHOLD
+            for index, pred_aspect in enumerate(pred_aspects):
+                if index in used or _aspect_key(pred_aspect) != key:
+                    continue
+                iou = max(_char_iou(reference, pred_aspect.get("evidence"), source) for reference in references.get(key, [""]))
+                if iou >= best_iou:
+                    best, best_iou = index, iou
+            if best is not None:
+                used.add(best)
+                tp += 1
+    return tp, predicted, references_total
+
+
 def _prf(tp: int, predicted: int, gold: int) -> dict[str, float]:
     precision = tp / predicted if predicted else 0.0
     recall = tp / gold if gold else 0.0
@@ -122,6 +164,7 @@ def evaluate_records(gold: dict[str, dict], predictions: dict[str, dict]) -> dic
     exact_aspect = _micro_counts(gold, predictions, evidence=True)
     normalized_aspect = _micro_counts(gold, predictions, evidence=True, normalize=True)
     overlap_aspect = _overlap_counts(gold, predictions)
+    multi_reference_aspect = _multi_reference_counts(gold, predictions)
 
     context_tp = context_pred = context_gold = 0
     valid_json = 0
@@ -180,6 +223,8 @@ def evaluate_records(gold: dict[str, dict], predictions: dict[str, dict]) -> dic
         "aspect_with_evidence": _prf(*exact_aspect),
         "aspect_with_evidence_normalized": _prf(*normalized_aspect),
         "aspect_with_evidence_overlap": {**_prf(*overlap_aspect), "iou_threshold": EVIDENCE_IOU_THRESHOLD},
+        # 사람이 그 aspect에 단 evidence 중 하나와라도 겹치면 맞다고 본다. 정답 evidence가 여럿인 긴 실제 리뷰용이다.
+        "aspect_with_evidence_any_reference": {**_prf(*multi_reference_aspect), "iou_threshold": EVIDENCE_IOU_THRESHOLD},
         "traveler_context": _prf(context_tp, context_pred, context_gold),
         "evidence_in_source_rate": evidence_in_source / evidence_total if evidence_total else 0.0,
         "record_exact_match": record_exact / total if total else 0.0,
