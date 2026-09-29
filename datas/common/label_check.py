@@ -23,7 +23,7 @@ from schema import ASPECTS, ATTRIBUTES, SENTIMENTS, TRAVELER_CONTEXTS
 REQUIRED_FIELDS: Final = ("review_id", "place_id", "category", "synthetic", "review", "label")
 ASPECT_FIELDS: Final = ("category", "attribute", "sentiment", "evidence")
 PLACE_PREFIX: Final = "place:"
-# 모델이 한글 한 글자(3바이트)를 다 못 만들면 "<0xEB>" 같은 바이트 조각이 그대로 나온다
+# ollama_client가 바이트 조각을 글자로 풀지만, UTF-8로 풀리지 않는 조각("<0xEB>" 하나 등)은 남을 수 있다
 BROKEN_BYTES: Final = re.compile(r"<0x[0-9A-Fa-f]{2}>")
 
 
