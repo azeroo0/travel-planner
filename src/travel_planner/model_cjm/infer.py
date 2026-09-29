@@ -15,20 +15,14 @@ import torch
 
 from .config import ModelConfig, ModelMode
 from .model import load_adapter, load_model, load_tokenizer
+from .postprocess import build_label
 from .prompt import build_prompt
 
 DEFAULT_BATCH_SIZE = 8
+# 실제 리뷰는 합성보다 길어 aspect가 많아지므로 384토큰에서는 출력이 잘린다.
+DEFAULT_MAX_NEW_TOKENS = 512
 
 MessagesFor = Callable[[dict[str, Any]], list[dict[str, str]]]
-
-
-def parse_prediction(text: str) -> dict | None:
-    """모델의 raw 출력이 하나의 JSON 객체인지 확인한다."""
-    try:
-        value = json.loads(text.strip())
-    except json.JSONDecodeError:
-        return None
-    return value if isinstance(value, dict) else None
 
 
 def default_messages(record: dict[str, Any]) -> list[dict[str, str]]:
@@ -61,7 +55,7 @@ def generate_batch(
     model: Any,
     tokenizer: Any,
     records: list[dict[str, Any]],
-    max_new_tokens: int = 384,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
     messages_for: MessagesFor = default_messages,
 ) -> list[str]:
     """records를 한 배치로 greedy 생성해 입력 순서대로 raw 출력을 돌려준다."""
@@ -97,16 +91,14 @@ def read_records(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in source if line.strip()]
 
 
-def to_result(record: dict[str, Any], raw_output: str) -> dict[str, Any]:
-    prediction = parse_prediction(raw_output)
+def to_result(record: dict[str, Any], raw_output: str, postprocess: bool = True) -> dict[str, Any]:
     result = {
         "review_id": record.get("review_id"),
         "place_id": record.get("place_id"),
         "category": record["category"],
         "review": record["review"],
         "raw_output": raw_output,
-        "label": prediction,
-        "json_valid": prediction is not None,
+        **build_label(raw_output, record["category"], record["review"], postprocess),
     }
     if "label" in record:
         result["gold_label"] = record["label"]
@@ -145,9 +137,10 @@ def predict(
     input_file: Path,
     output_file: Path,
     adapter_path: str | None = None,
-    max_new_tokens: int = 384,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
     batch_size: int = DEFAULT_BATCH_SIZE,
     load_in_4bit: bool = False,
+    postprocess: bool = True,
 ) -> None:
     model, tokenizer = load_for_inference(model_id, mode, adapter_path, load_in_4bit)
     records = read_records(input_file)
@@ -168,7 +161,7 @@ def predict(
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as target:
         for record, raw_output in zip(records, outputs):
-            target.write(json.dumps(to_result(record, raw_output), ensure_ascii=False) + "\n")
+            target.write(json.dumps(to_result(record, raw_output, postprocess), ensure_ascii=False) + "\n")
 
 
 def parse_args() -> argparse.Namespace:
@@ -178,9 +171,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--adapter-path")
     parser.add_argument("--input-file", type=Path, required=True)
     parser.add_argument("--output-file", type=Path, required=True)
-    parser.add_argument("--max-new-tokens", type=int, default=384)
+    parser.add_argument("--max-new-tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--load-in-4bit", action="store_true", help="qlora가 아니어도 4bit로 로드한다 (base 비교용)")
+    parser.add_argument("--no-postprocess", action="store_true", help="잘린 JSON 복구와 스키마 정리를 끈다")
     return parser.parse_args()
 
 
@@ -195,4 +189,5 @@ if __name__ == "__main__":
         max_new_tokens=args.max_new_tokens,
         batch_size=args.batch_size,
         load_in_4bit=args.load_in_4bit,
+        postprocess=not args.no_postprocess,
     )
