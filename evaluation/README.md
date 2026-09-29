@@ -12,11 +12,14 @@ cp evaluation/config.example.json evaluation/config.json
 
 `mode`는 `base`, `lora`, `qlora` 중 하나입니다. LoRA/QLoRA는 반드시 학습된 adapter 경로를 지정해야 합니다. 설정 파일의 상대 경로는 설정 파일이 있는 `evaluation/` 폴더를 기준으로 해석합니다.
 
-GPT Judge를 사용하려면 API Key를 환경 변수로 등록합니다.
+GPT Judge를 사용하려면 `evaluation/.env.example`을 복사해 `evaluation/.env`를 만들고 API Key를 입력합니다.
 
 ```bash
-export OPENAI_API_KEY="..."
+cp evaluation/.env.example evaluation/.env
+# evaluation/.env 안의 OPENAI_API_KEY 값을 실제 Key로 변경
 ```
+
+실행 시 `evaluation/.env`를 자동으로 읽습니다. 이미 셸 환경 변수에 `OPENAI_API_KEY`가 있으면 셸 환경 변수 값을 우선하며, 다른 파일을 사용하려면 `--env-file`을 지정합니다.
 
 ## 실행
 
@@ -26,6 +29,13 @@ export OPENAI_API_KEY="..."
 uv run python -m evaluation.run_pipeline \
   --config evaluation/config.json \
   --out evaluation/runs/2026-09-29
+```
+
+```bash
+uv run python -m evaluation.run_pipeline \
+  --config evaluation/config.json \
+  --out evaluation/runs/2026-09-29 \
+  --env-file /path/to/team-evaluation.env
 ```
 
 생성물은 다음과 같습니다.

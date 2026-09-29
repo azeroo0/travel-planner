@@ -1,0 +1,14 @@
+{
+  "gold": "../artifacts/datasets/test.jsonl",
+  "models": [
+    {
+      "name": "qwen3_4b_qlora_busan",
+      "model_id": "Qwen/Qwen3-4B",
+      "mode": "qlora",
+      "adapter_path": "/Users/sunub/workspace/travel-planner/models/qwen3_4b_qlora_busan"
+    }
+  ],
+  "judge": {
+    "model": "gpt-5.5"
+  }
+}

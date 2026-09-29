@@ -19,6 +19,14 @@ from .pipeline import (
 )
 
 
+def load_api_env(env_file: Path | None = None) -> bool:
+    """Load evaluation/.env (or a custom file) without overriding the shell."""
+    from dotenv import load_dotenv
+
+    path = env_file or Path(__file__).with_name(".env")
+    return load_dotenv(dotenv_path=path, override=False)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TripFit 5-model evaluation pipeline")
     parser.add_argument("--config", type=Path, required=True, help="모델 5개와 Gold 경로를 담은 JSON 설정")
@@ -27,11 +35,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-judge", action="store_true", help="OpenAI Judge 호출 생략")
     parser.add_argument("--judge-limit", type=int, help="Judge를 앞부분 N개 리뷰에만 실행")
     parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
+    parser.add_argument("--env-file", type=Path, help="API Key를 읽을 .env 파일 경로 (기본: evaluation/.env)")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    load_api_env(args.env_file)
     config = load_config(args.config)
     output_dir = args.out
     prediction_dir = output_dir / "predictions"
