@@ -2,13 +2,6 @@
   "gold": "../datasets/v2/test_normalized.jsonl",
   "models": [
     {
-      "name": "qwen3_4b_base",
-      "model_id": "Qwen/Qwen3-4B-Instruct-2507",
-      "mode": "base",
-      "load_in_4bit": true,
-      "max_new_tokens": 384
-    },
-    {
       "name": "qwen3_4b_qlora_v1",
       "model_id": "Qwen/Qwen3-4B-Instruct-2507",
       "mode": "qlora",
