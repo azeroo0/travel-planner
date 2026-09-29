@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 from .pipeline import (
@@ -34,7 +35,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gold", type=Path, help="config의 gold 대신 쓸 Gold JSONL (같은 모델을 여러 test로 평가할 때)")
     parser.add_argument("--skip-inference", action="store_true", help="기존 predictions/*.jsonl 재사용")
     parser.add_argument("--skip-judge", action="store_true", help="OpenAI Judge 호출 생략")
-    parser.add_argument("--judge-limit", type=int, help="Judge를 앞부분 N개 리뷰에만 실행")
+    parser.add_argument("--judge-limit", type=int, help="Judge를 고정 seed로 뽑은 N개 리뷰에만 실행 (같은 결과 파일이면 이어서 실행)")
+    parser.add_argument("--judge-model", help="config의 judge.model 대신 쓸 Judge 모델 (예: gpt-5-mini, gpt-4o-mini, gpt-4.1-mini)")
+    parser.add_argument("--judge-dry-run", action="store_true", help="API를 부르지 않고 호출 횟수만 출력")
     parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
     parser.add_argument("--env-file", type=Path, help="API Key를 읽을 .env 파일 경로 (기본: evaluation/.env)")
     return parser.parse_args()
@@ -71,22 +74,28 @@ def main() -> None:
 
     judge_summary = {"status": "skipped", "reason": "--skip-judge 사용" if args.skip_judge else "OPENAI_API_KEY 없음"}
     if not args.skip_judge:
+        judge_model = args.judge_model or config.get("judge", {}).get("model", "gpt-5-mini")
         api_key = os.environ.get(args.api_key_env)
-        if api_key:
-            judge_path = output_dir / "judge_results.jsonl"
+        if api_key or args.judge_dry_run:
+            safe_model = re.sub(r"[^A-Za-z0-9._-]", "_", judge_model)
+            judge_path = output_dir / f"judge_results_{safe_model}.jsonl"
             judge_summary = {
-                "status": "completed",
-                "model": config.get("judge", {}).get("model", "gpt-6-astra"),
+                "status": "dry_run" if args.judge_dry_run else "completed",
+                "model": judge_model,
                 "results": run_judge(
                     gold_rows=gold_rows,
                     prediction_paths=prediction_paths,
-                    model=config.get("judge", {}).get("model", "gpt-6-astra"),
-                    api_key=api_key,
+                    model=judge_model,
+                    api_key=api_key or "",
                     output_path=judge_path,
                     limit=args.judge_limit,
+                    dry_run=args.judge_dry_run,
                 ),
                 "path": str(judge_path),
             }
+            if args.judge_dry_run:
+                print(f"Judge 계획 ({judge_model}): {judge_summary['results']}")
+                judge_summary["results"] = {}
 
     report_data = dict(metrics)
     report_data["inference"] = inference_log

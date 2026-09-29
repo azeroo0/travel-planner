@@ -82,14 +82,33 @@ uv run python -m evaluation.run_pipeline \
   --skip-inference
 ```
 
-비용을 아끼며 Judge 설정을 먼저 확인하려면 일부 리뷰만 평가합니다.
+### GPT Judge 실행
+
+Judge는 리뷰 1건과 모델 1개마다 API를 한 번씩 부릅니다. 리뷰가 172건이고 모델이 2개면 344회입니다. 사용할 수 있는 모델은 `gpt-5-mini`, `gpt-4o-mini`, `gpt-4.1-mini`이고, `config.json`의 `judge.model` 또는 `--judge-model`로 고릅니다. GPT-5 계열에는 temperature를 보내지 않습니다.
+
+1. 호출 없이 횟수만 확인합니다.
 
 ```bash
 uv run python -m evaluation.run_pipeline \
   --config evaluation/config.json \
   --out evaluation/runs/calibration \
-  --judge-limit 20
+  --skip-inference --judge-limit 20 --judge-dry-run
 ```
+
+2. 소량(20건)으로 응답 형식과 점수를 확인합니다. `--judge-limit`은 파일 앞부분이 아니라 고정 seed로 카테고리가 섞이게 뽑습니다.
+
+```bash
+uv run python -m evaluation.run_pipeline \
+  --config evaluation/config.json \
+  --out evaluation/runs/calibration \
+  --skip-inference --judge-limit 20
+```
+
+3. 문제가 없으면 `--judge-limit` 없이 같은 `--out`으로 다시 실행합니다. 결과는 `judge_results_<모델>.jsonl`에 호출마다 이어 쓰고, 이미 받은 항목은 건너뛰므로 2번의 20건에는 비용을 다시 쓰지 않습니다. 중간에 멈춰도 같은 명령으로 이어집니다.
+
+- 제한(429)·서버 오류·시간 초과는 4번까지 재시도하고, 그래도 실패한 항목은 건너뛰어 `errors`로 셉니다. 연속 5번 실패하면 멈춥니다. 키 오류 같은 4xx는 바로 멈춥니다.
+- Judge가 JSON이 아닌 답을 준 경우는 0점이 아니라 점수 없음으로 두어 평균에서 제외하고 `errors`로 셉니다.
+- 다른 Judge 모델로 다시 보려면 `--judge-model gpt-4.1-mini`처럼 지정합니다. 결과 파일이 모델별로 나뉩니다.
 
 ## 평가 기준
 

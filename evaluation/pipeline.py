@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import gc
+import hashlib
 import html
 import itertools
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -189,9 +191,45 @@ def _supports_temperature(model: str) -> bool:
     return not (name.startswith("gpt-5") or re.match(r"o\d", name))
 
 
-def call_openai_judge(*, model: str, review: str, category: str, gold: dict[str, Any], candidate: dict[str, Any], api_key: str, base_url: str = "https://api.openai.com/v1/chat/completions") -> dict[str, Any]:
+class JudgeCallError(RuntimeError):
+    """재시도해도 Judge 호출이 실패했다."""
+
+
+JUDGE_RETRY_STATUS = {429, 500, 502, 503, 504}
+JUDGE_MAX_ATTEMPTS = 4
+JUDGE_MAX_CONSECUTIVE_FAILURES = 5
+JUDGE_SAMPLE_SEED = 42
+
+
+def _retry_delay(attempt: int, response: Any) -> float:
+    retry_after = response.headers.get("Retry-After") if response is not None else None
+    try:
+        return min(float(retry_after), 60.0) if retry_after else min(2.0 ** attempt, 30.0)
+    except ValueError:
+        return min(2.0 ** attempt, 30.0)
+
+
+def _post_with_retry(url: str, headers: dict[str, str], payload: dict[str, Any]) -> Any:
+    """제한(429)·서버 오류·시간 초과만 재시도한다. 그 밖의 4xx(키 오류, 지원하지 않는 인자)는 바로 실패시킨다."""
     import requests
 
+    last_error = "알 수 없는 오류"
+    for attempt in range(JUDGE_MAX_ATTEMPTS):
+        response = None
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=300)
+        except (requests.Timeout, requests.ConnectionError) as error:
+            last_error = type(error).__name__
+        else:
+            if response.status_code not in JUDGE_RETRY_STATUS:
+                response.raise_for_status()
+                return response
+            last_error = f"HTTP {response.status_code}"
+        time.sleep(_retry_delay(attempt, response))
+    raise JudgeCallError(f"{JUDGE_MAX_ATTEMPTS}번 시도했지만 실패했습니다: {last_error}")
+
+
+def call_openai_judge(*, model: str, review: str, category: str, gold: dict[str, Any], candidate: dict[str, Any], api_key: str, base_url: str = "https://api.openai.com/v1/chat/completions") -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model,
         "response_format": {"type": "json_object"},
@@ -202,40 +240,93 @@ def call_openai_judge(*, model: str, review: str, category: str, gold: dict[str,
     }
     if _supports_temperature(model):
         payload["temperature"] = 0
-    response = requests.post(
-        base_url,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json=payload,
-        timeout=300,
-    )
-    response.raise_for_status()
-    result = _extract_json_object(response.json()["choices"][0]["message"]["content"])
-    return result or {"pass": False, "score": 0.0, "error_tags": ["invalid_judge_json"]}
+    response = _post_with_retry(base_url, {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, payload)
+    content = response.json()["choices"][0]["message"]["content"]
+    # 파싱에 실패한 응답은 0점이 아니라 점수 없음으로 둔다. 모델 탓이 아니라 Judge 응답 문제이기 때문이다.
+    return _extract_json_object(content) or {"pass": None, "score": None, "error_tags": ["invalid_judge_json"], "raw": content[:500]}
 
 
-def run_judge(*, gold_rows: list[dict[str, Any]], prediction_paths: dict[str, Path], model: str, api_key: str, output_path: Path, limit: int | None = None) -> dict[str, Any]:
-    gold = _by_id(gold_rows)
-    predictions = {name: _by_id(read_jsonl(path)) for name, path in prediction_paths.items()}
-    rows = []
-    for index, (review_id, gold_row) in enumerate(gold.items()):
-        if limit is not None and index >= limit:
-            break
-        for model_name, model_rows in predictions.items():
-            candidate = model_rows.get(review_id, {}).get("label", {"traveler_context": [], "aspects": []})
-            result = call_openai_judge(model=model, review=gold_row.get("review", ""), category=gold_row.get("category", ""), gold=gold_row.get("label", {}), candidate=candidate, api_key=api_key)
-            rows.append({"review_id": review_id, "model": model_name, "judge": result})
-    write_jsonl(output_path, rows)
-    summary = {name: {"items": 0, "pass_rate": 0.0, "mean_score": 0.0} for name in prediction_paths}
+def _judge_ok(result: dict[str, Any]) -> bool:
+    return result.get("score") is not None
+
+
+def sample_review_ids(review_ids: list[str], limit: int | None, seed: int = JUDGE_SAMPLE_SEED) -> list[str]:
+    """limit개를 고정 seed로 골라 원래 순서를 지킨다. 파일 앞부분만 자르면 한 카테고리만 뽑히기 때문이다.
+
+    limit이 커질수록 앞서 뽑은 리뷰가 그대로 포함되어, 소량 확인에서 받은 결과를 전체 실행이 이어 쓴다.
+    """
+    if limit is None or limit >= len(review_ids):
+        return list(review_ids)
+    ranked = sorted(review_ids, key=lambda review_id: hashlib.sha256(f"{seed}:{review_id}".encode()).hexdigest())
+    chosen = set(ranked[:limit])
+    return [review_id for review_id in review_ids if review_id in chosen]
+
+
+def _read_done_judgements(path: Path) -> dict[tuple[str, str], dict[str, Any]]:
+    if not path.exists():
+        return {}
+    rows = read_jsonl(path)
+    return {(row["review_id"], row["model"]): row for row in rows if _judge_ok(row["judge"])}
+
+
+def summarize_judge(rows: list[dict[str, Any]], model_names: list[str], failed: dict[str, int]) -> dict[str, Any]:
+    summary = {name: {"items": 0, "pass_rate": 0.0, "mean_score": 0.0, "errors": failed.get(name, 0)} for name in model_names}
     for row in rows:
         item = summary[row["model"]]
         item["items"] += 1
         item["pass_rate"] += float(bool(row["judge"].get("pass")))
-        item["mean_score"] += float(row["judge"].get("score", 0.0) or 0.0)
+        item["mean_score"] += float(row["judge"]["score"])
     for item in summary.values():
         if item["items"]:
             item["pass_rate"] /= item["items"]
             item["mean_score"] /= item["items"]
     return summary
+
+
+def run_judge(*, gold_rows: list[dict[str, Any]], prediction_paths: dict[str, Path], model: str, api_key: str, output_path: Path,
+              limit: int | None = None, dry_run: bool = False) -> dict[str, Any]:
+    """리뷰 x 모델마다 Judge를 한 번씩 부른다.
+
+    결과는 호출마다 output_path에 이어 쓰고, 다시 실행하면 이미 받은 것은 건너뛴다 (같은 호출에 비용을 다시 쓰지 않는다).
+    호출이 재시도 끝에 실패한 항목은 건너뛰고 errors로 센다. 연속으로 실패하면 서비스 문제로 보고 멈춘다.
+    """
+    gold = _by_id(gold_rows)
+    predictions = {name: _by_id(read_jsonl(path)) for name, path in prediction_paths.items()}
+    review_ids = sample_review_ids(list(gold), limit)
+    done = _read_done_judgements(output_path)
+    todo = [(review_id, name) for review_id in review_ids for name in predictions if (review_id, name) not in done]
+    if dry_run:
+        return {"planned_calls": len(todo), "already_done": len(review_ids) * len(predictions) - len(todo), "reviews": len(review_ids)}
+
+    failed: dict[str, int] = {name: 0 for name in predictions}
+    consecutive = 0
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("a", encoding="utf-8") as sink:
+        for index, (review_id, name) in enumerate(todo, start=1):
+            gold_row = gold[review_id]
+            candidate = predictions[name].get(review_id, {}).get("label", {"traveler_context": [], "aspects": []})
+            try:
+                result = call_openai_judge(model=model, review=gold_row.get("review", ""), category=gold_row.get("category", ""),
+                                           gold=gold_row.get("label", {}), candidate=candidate, api_key=api_key)
+            except JudgeCallError as error:
+                failed[name] += 1
+                consecutive += 1
+                print(f"[judge {index}/{len(todo)}] 실패 {name} {review_id}: {error}", flush=True)
+                if consecutive >= JUDGE_MAX_CONSECUTIVE_FAILURES:
+                    raise JudgeCallError(f"연속 {consecutive}번 실패해서 멈춥니다. 같은 명령을 다시 실행하면 이어서 진행합니다") from error
+                continue
+            consecutive = 0
+            if not _judge_ok(result):
+                failed[name] += 1
+                print(f"[judge {index}/{len(todo)}] 응답 해석 실패 {name} {review_id}", flush=True)
+                continue
+            sink.write(json.dumps({"review_id": review_id, "model": name, "judge": result}, ensure_ascii=False) + "\n")
+            sink.flush()
+            print(f"[judge {index}/{len(todo)}] {name} {review_id}", flush=True)
+
+    wanted = set(review_ids)
+    rows = [row for row in _read_done_judgements(output_path).values() if row["review_id"] in wanted and row["model"] in predictions]
+    return summarize_judge(rows, list(prediction_paths), failed)
 
 
 def build_human_rows(gold_rows: list[dict[str, Any]], prediction_paths: dict[str, Path]) -> list[dict[str, Any]]:
@@ -288,10 +379,10 @@ def build_report_html(metrics: dict[str, Any], human_review_filename: str) -> st
     judge = metrics.get("judge", {})
     judge_rows = []
     for name, result in judge.get("results", {}).items():
-        judge_rows.append(f"<tr><td>{html.escape(name)}</td><td>{result.get('pass_rate', 0):.4f}</td><td>{result.get('mean_score', 0):.4f}</td><td>{result.get('items', 0)}</td></tr>")
+        judge_rows.append(f"<tr><td>{html.escape(name)}</td><td>{result.get('pass_rate', 0):.4f}</td><td>{result.get('mean_score', 0):.4f}</td><td>{result.get('items', 0)}</td><td>{result.get('errors', 0)}</td></tr>")
     judge_section = "<p>GPT Judge를 실행하지 않았습니다.</p>"
     if judge_rows:
-        judge_section = f"<table><thead><tr><th>모델</th><th>Pass Rate</th><th>평균 점수</th><th>샘플 수</th></tr></thead><tbody>{''.join(judge_rows)}</tbody></table>"
+        judge_section = f"<table><thead><tr><th>모델</th><th>Pass Rate</th><th>평균 점수</th><th>샘플 수</th><th>Judge 오류</th></tr></thead><tbody>{''.join(judge_rows)}</tbody></table>"
     return f"""<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TripFit Evaluation Report</title><style>body{{font-family:system-ui,sans-serif;background:#f5f7fb;color:#172033;margin:0}}main{{max-width:1180px;margin:32px auto;padding:0 20px}}.card{{background:#fff;border:1px solid #dfe5ef;border-radius:14px;padding:20px;margin:16px 0;box-shadow:0 4px 16px #1720330d}}table{{border-collapse:collapse;width:100%;background:#fff}}th,td{{border-bottom:1px solid #e6ebf2;padding:12px;text-align:left}}th{{background:#eef3fa}}a{{color:#165bc4}}</style></head><body><main><h1>TripFit 평가 리포트</h1><div class=\"card\"><p>Gold records: {metrics.get('gold_records', 0)}</p><p>인간 평가: <a href=\"{html.escape(human_review_filename)}\">human_review.html 열기</a></p></div><div class=\"card\"><h2>자동 정량 평가</h2><table><thead><tr><th>모델</th><th>Aspect F1</th><th>Evidence 포함 F1</th><th>Evidence 원문 포함</th><th>Record Exact</th><th>JSON 성공</th><th>Schema Valid</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div><div class=\"card\"><h2>GPT Judge</h2>{judge_section}</div><div class=\"card\"><h2>해석</h2><p>최종 모델 선택은 Aspect F1 하나가 아니라 구조화 정확도, Evidence 근거성, JSON 안정성, GPT Judge와 인간 평가 결과를 함께 확인해야 합니다.</p></div></main></body></html>"""
 
 
