@@ -26,7 +26,7 @@ def save_config(config: TrainConfig) -> None:
     """실험 재현에 필요한 설정을 결과 디렉터리에 남긴다."""
     config.output_path.mkdir(parents=True, exist_ok=True)
     values = asdict(config)
-    for key in ("train_file", "split_file", "gold_file", "output_path"):
+    for key in ("train_file", "validation_file", "output_path"):
         values[key] = str(values[key])
     (config.output_path / "train_config.json").write_text(
         json.dumps(values, ensure_ascii=False, indent=2) + "\n",
@@ -68,10 +68,9 @@ def train(config: TrainConfig) -> None:
     set_seed(config.seed)
     save_config(config)
 
-    train_dataset, validation_dataset, _test_records = load_training_datasets(
-        silver_file=config.train_file,
-        split_file=config.split_file,
-        gold_file=config.gold_file,
+    train_dataset, validation_dataset = load_training_datasets(
+        train_file=config.train_file,
+        validation_file=config.validation_file,
     )
 
     tokenizer = load_tokenizer(config)
@@ -97,8 +96,7 @@ def parse_args() -> TrainConfig:
     parser.add_argument("--mode", choices=("lora", "qlora"), required=True)
     parser.add_argument("--model-id", required=True)
     parser.add_argument("--train-file", type=Path, required=True)
-    parser.add_argument("--split-file", type=Path, required=True)
-    parser.add_argument("--gold-file", type=Path, required=True)
+    parser.add_argument("--validation-file", type=Path, required=True)
     parser.add_argument("--output-path", type=Path, required=True)
     args = parser.parse_args()
 
@@ -106,8 +104,7 @@ def parse_args() -> TrainConfig:
         mode=args.mode,
         model_id=args.model_id,
         train_file=args.train_file,
-        split_file=args.split_file,
-        gold_file=args.gold_file,
+        validation_file=args.validation_file,
         output_path=args.output_path,
     )
 

@@ -18,8 +18,7 @@ class TrainConfig:
     model_id: str
 
     train_file: Path
-    split_file: Path
-    gold_file: Path
+    validation_file: Path
     output_path: Path
 
     # 재현성을 위해 seed 값을 설정

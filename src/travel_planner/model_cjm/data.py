@@ -67,8 +67,14 @@ def convert_to_dataset(records: list[dict]) -> Dataset:
     return Dataset.from_list([to_sft_example(record) for record in records])
 
 
-def load_training_datasets(silver_file: Path, split_file: Path, gold_file: Path) -> tuple[Dataset, Dataset, list[dict]]:
-    train_records, validation_records = build_train_validation_records(silver_file, split_file)
-    train_records = remove_duplicate_reviews(train_records)
-    validation_records = remove_duplicate_reviews(validation_records)
-    return convert_to_dataset(train_records), convert_to_dataset(validation_records), build_test_records(gold_file)
+def load_sft_dataset(path: Path) -> Dataset:
+    """이미 train/validation으로 확정된 JSONL을 SFT Dataset으로 읽는다."""
+    records = remove_duplicate_reviews(read_jsonl(path))
+    return convert_to_dataset(records)
+
+
+def load_training_datasets(
+    train_file: Path,
+    validation_file: Path,
+) -> tuple[Dataset, Dataset]:
+    return load_sft_dataset(train_file), load_sft_dataset(validation_file)
