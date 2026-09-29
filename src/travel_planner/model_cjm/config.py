@@ -46,3 +46,7 @@ class TrainConfig:
     # 저장과 평가 주기
     save_total_limit: int = 2
     logging_steps: int = 10
+
+    # W&B 추적. wandb_project가 None이면 기록하지 않는다.
+    wandb_project: str | None = None
+    wandb_run_name: str | None = None
