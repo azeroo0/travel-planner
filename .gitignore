@@ -16,3 +16,17 @@ wheels/
 # 팀원별 원본(in)과 생성 결과(out). 커밋하지 않는다
 datas/*/in/
 datas/*/out/
+
+# 모델 학습 산출물(adapter·checkpoint·GGUF·병합 가중치). 수 GB라 커밋하지 않는다
+artifacts/
+
+# 실험 로그와 평가 실행 결과
+wandb/
+evaluation/runs/
+
+# 프론트엔드 빌드 결과와 의존성
+.next/
+node_modules/
+
+# 백업 파일
+*.bak
