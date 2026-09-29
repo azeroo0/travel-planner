@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from travel_planner.schemas.recommendations import RecommendationRequest, RecommendationResponse
+from backend.schemas.recommendations import RecommendationRequest, RecommendationResponse
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 

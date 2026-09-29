@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from travel_planner.repositories import scraps as scrap_repository
-from travel_planner.schemas.scraps import ScrapCreate, ScrapRead
+from backend.repositories import scraps as scrap_repository
+from backend.schemas.scraps import ScrapCreate, ScrapRead
 
 
 async def create_scrap(session: AsyncSession, *, user_id: int, request: ScrapCreate) -> ScrapRead:

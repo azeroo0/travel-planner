@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from travel_planner.db.base import Base
+from backend.db.base import Base
 
 
 class ReviewAnnotation(Base):

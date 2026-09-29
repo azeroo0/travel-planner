@@ -5,7 +5,7 @@ from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKe
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from travel_planner.db.base import Base
+from backend.db.base import Base
 
 
 class Review(Base):

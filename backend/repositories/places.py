@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from travel_planner.models.place import Place
+from backend.models.place import Place
 
 
 async def list_places(session: AsyncSession, *, limit: int, offset: int) -> list[Place]:

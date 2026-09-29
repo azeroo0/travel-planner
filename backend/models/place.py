@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from travel_planner.db.base import Base
+from backend.db.base import Base
 
 
 class Place(Base):

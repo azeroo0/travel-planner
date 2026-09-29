@@ -1,6 +1,6 @@
 import httpx
 
-from travel_planner.core.config import get_settings
+from backend.core.config import get_settings
 
 
 class OllamaClient:

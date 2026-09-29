@@ -1,7 +1,7 @@
 from sqlalchemy import BigInteger, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from travel_planner.db.base import Base
+from backend.db.base import Base
 
 
 class Region(Base):

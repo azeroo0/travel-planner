@@ -3,9 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from travel_planner.db.session import get_session
-from travel_planner.repositories import places as place_repository
-from travel_planner.schemas.places import PlaceRead
+from backend.db.session import get_session
+from backend.repositories import places as place_repository
+from backend.schemas.places import PlaceRead
 
 router = APIRouter(prefix="/places", tags=["places"])
 Session = Annotated[AsyncSession, Depends(get_session)]

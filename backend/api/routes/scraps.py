@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from travel_planner.schemas.scraps import ScrapCreate
+from backend.schemas.scraps import ScrapCreate
 
 router = APIRouter(prefix="/scraps", tags=["scraps"])
 
