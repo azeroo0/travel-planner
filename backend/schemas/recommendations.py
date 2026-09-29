@@ -52,3 +52,41 @@ class RecommendationResponse(BaseModel):
     ignored_keywords: list[str]
     items: list[RecommendationItem]
     skipped: list[SkippedScrap]
+
+
+Category = Literal["hotel", "restaurant", "attraction"]
+Region = Literal["haeundae", "gwangan", "seomyeon", "wondo", "west"]
+Companion = Literal["solo", "friends", "couple", "parents", "kids"]
+Walk = Literal["ok", "moderate", "low"]
+
+
+class PlaceRecommendationQuery(BaseModel):
+    companion: Companion | None = None
+    walk: Walk | None = None
+    priorities: list[Literal["sea", "food", "photo", "culture", "rest", "quiet"]] = Field(default_factory=list)
+    avoids: list[Literal["waiting", "stairs", "noise", "parking", "crowd"]] = Field(default_factory=list)
+    category: Category | None = None
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class RecommendedPlace(BaseModel):
+    place_id: int
+    name: str
+    category: Category
+    region: Region
+
+
+class FitFactor(BaseModel):
+    aspect: str
+    polarity: Literal["positive", "negative", "neutral"]
+    share: float
+    weight: float
+    delta: float
+
+
+class FitResult(BaseModel):
+    place: RecommendedPlace
+    fit: float = Field(ge=0, le=100)
+    reason: str
+    strengths: list[FitFactor] = Field(default_factory=list)
+    cautions: list[FitFactor] = Field(default_factory=list)

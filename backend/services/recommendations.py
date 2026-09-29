@@ -19,8 +19,10 @@ import asyncio
 import json
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 
 import httpx
+from pydantic import BaseModel, Field, StrictInt, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.clients.ollama_client import OllamaClient
@@ -29,6 +31,9 @@ from backend.repositories import recommendations as recommendation_repository
 from backend.schemas.recommendations import (
     AspectScore,
     AspectWeight,
+    FitResult,
+    PlaceRecommendationQuery,
+    RecommendedPlace,
     RecommendationItem,
     RecommendationRequest,
     RecommendationResponse,
@@ -108,6 +113,178 @@ STRENGTH_MIN, CAUTION_MAX = 60.0, 40.0
 class ScrapNotFound(Exception):
     def __init__(self, scrap_ids: list[int]):
         self.scrap_ids = scrap_ids
+
+
+class PlaceModelUnavailable(Exception):
+    pass
+
+
+class PlaceModelOutputInvalid(Exception):
+    pass
+
+
+PLACE_RECOMMENDATION_PROMPT = """당신은 부산 장소 리뷰를 근거로 조건에 맞는 장소를 고르는 추천 도우미다.
+제공된 후보 장소만 선택하고, 제공된 리뷰만 판단 근거로 사용하라.
+각 리뷰의 review_id는 그 리뷰가 속한 place_id에만 연결하라.
+입력에 없는 place_id나 review_id를 만들지 말고, 다른 장소의 review_id를 연결하지 마라.
+리뷰 문장을 evidence로 다시 작성하거나 최종 추천 이유(reason)를 작성하지 마라.
+근거가 부족한 장소는 추천하지 마라.
+fit은 사용자 조건과 리뷰의 부합 정도를 나타내는 0~100 숫자다.
+반드시 다음 JSON 객체 하나만 반환하라. 다른 문장은 쓰지 마라.
+{"recommendations":[{"place_id":1,"fit":80,"review_ids":[123]}]}
+적합한 장소가 없으면 {"recommendations":[]}를 반환하라."""
+
+PLACE_REASON_PROMPT = """지금 제공된 장소 하나의 추천 이유(reason)만 작성하라.
+사용자 조건과 이 장소에 대해 제공된 리뷰만 사용하고, 다른 장소의 정보는 사용하지 마라.
+리뷰에 없는 사실을 추측하거나 만들어내지 마라.
+사용자 조건을 뒷받침하는 내용이 부족하면 근거가 제한적이라고 자연스럽게 표현하라.
+반드시 {"reason":"리뷰에 근거한 자연스러운 한국어 설명"} JSON 객체 하나만 반환하라."""
+
+PLACE_BATCH_SIZE = 12
+REVIEWS_PER_PLACE = 3
+REVIEW_MAX_CHARS = 400
+
+
+class _ModelPlaceItem(BaseModel):
+    place_id: StrictInt
+    fit: float = Field(strict=True, ge=0, le=100)
+    review_ids: list[StrictInt] = Field(min_length=1, max_length=REVIEWS_PER_PLACE)
+
+
+class _ModelPlaceResponse(BaseModel):
+    recommendations: list[_ModelPlaceItem]
+
+
+class _ModelReason(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+@dataclass(frozen=True)
+class _VerifiedPlaceSelection:
+    place: recommendation_repository.PlaceCandidate
+    fit: float
+    # 검증된 review_id → DB의 전체 review_text. 공개 응답에는 evidence 필드가 없다.
+    reviews: dict[int, str]
+
+
+def _parse_place_recommendations(
+    text: str,
+    candidates: dict[int, recommendation_repository.PlaceCandidate],
+    reviews: dict[int, dict[int, str]],
+    limit: int,
+) -> list[_VerifiedPlaceSelection]:
+    try:
+        data = _ModelPlaceResponse.model_validate_json(text.strip())
+    except ValidationError as error:
+        raise PlaceModelOutputInvalid("Recommendation model output is not valid JSON") from error
+
+    results: list[_VerifiedPlaceSelection] = []
+    seen: set[int] = set()
+    for item in data.recommendations:
+        place = candidates.get(item.place_id)
+        if place is None or item.place_id in seen:
+            continue
+        place_reviews = reviews.get(item.place_id, {})
+        if len(set(item.review_ids)) != len(item.review_ids) or any(
+            review_id not in place_reviews for review_id in item.review_ids
+        ):
+            continue
+        seen.add(item.place_id)
+        results.append(_VerifiedPlaceSelection(
+            place=place, fit=item.fit,
+            reviews={review_id: place_reviews[review_id] for review_id in item.review_ids},
+        ))
+    if data.recommendations and not results:
+        raise PlaceModelOutputInvalid("Recommendation model returned no verifiable places")
+    return sorted(results, key=lambda item: (-item.fit, item.place.place_id))[:limit]
+
+
+def _place_conditions(query: PlaceRecommendationQuery) -> dict:
+    return {
+        "with": query.companion, "walk": query.walk, "pri": query.priorities,
+        "avoid": query.avoids, "category": query.category,
+    }
+
+
+async def _generate_place_reason(
+    selection: _VerifiedPlaceSelection, query: PlaceRecommendationQuery, model: str, client: OllamaClient,
+) -> str | None:
+    payload = {
+        "conditions": _place_conditions(query),
+        "place": {"place_id": selection.place.place_id, "name": selection.place.name,
+                  "category": selection.place.category, "region": selection.place.region},
+        "reviews": [{"review_id": review_id, "review_text": text}
+                    for review_id, text in selection.reviews.items()],
+    }
+    try:
+        response = await client.chat(model, [
+            {"role": "system", "content": PLACE_REASON_PROMPT},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ], format=_ModelReason.model_json_schema())
+        reason = _ModelReason.model_validate_json(response.strip()).reason.strip()
+        return reason or None
+    except (httpx.HTTPError, TimeoutError, ValidationError):
+        return None
+
+
+async def recommend_places(
+    session: AsyncSession, query: PlaceRecommendationQuery, client: OllamaClient | None = None,
+) -> list[FitResult]:
+    model = get_settings().ollama_model
+    after_id = 0
+    selections: list[_VerifiedPlaceSelection] = []
+    invalid_output = False
+    client = client or OllamaClient()
+    while candidates := await recommendation_repository.recommendation_candidates(
+        session, category=query.category, after_id=after_id, batch_size=PLACE_BATCH_SIZE,
+    ):
+        after_id = candidates[-1].place_id
+        reviews = await recommendation_repository.candidate_reviews(
+            session, [place.place_id for place in candidates],
+            per_place=REVIEWS_PER_PLACE,
+        )
+        reviewed = {place.place_id: place for place in candidates if reviews.get(place.place_id)}
+        if not reviewed:
+            continue
+        if not model:
+            raise PlaceModelUnavailable("Recommendation model is not configured")
+        payload = {
+            "conditions": _place_conditions(query),
+            "places": [
+                {"place_id": place.place_id, "name": place.name, "category": place.category,
+                 "region": place.region,
+                 "reviews": [{"review_id": review_id, "text": text[:REVIEW_MAX_CHARS]}
+                             for review_id, text in reviews[place.place_id].items()]}
+                for place in reviewed.values()
+            ],
+        }
+        try:
+            response = await client.chat(model, [
+                {"role": "system", "content": PLACE_RECOMMENDATION_PROMPT},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ], format=_ModelPlaceResponse.model_json_schema())
+        except (httpx.HTTPError, TimeoutError) as error:
+            raise PlaceModelUnavailable("Recommendation model server is unavailable") from error
+        try:
+            selections.extend(_parse_place_recommendations(response, reviewed, reviews, query.limit))
+        except PlaceModelOutputInvalid:
+            invalid_output = True
+            continue
+        selections.sort(key=lambda item: (-item.fit, item.place.place_id))
+        del selections[query.limit:]
+    results: list[FitResult] = []
+    for selection in selections:
+        reason = await _generate_place_reason(selection, query, model, client)
+        if reason is None:
+            continue
+        results.append(FitResult(
+            place=RecommendedPlace(place_id=selection.place.place_id, name=selection.place.name,
+                                   category=selection.place.category, region=selection.place.region),
+            fit=selection.fit, reason=reason, strengths=[], cautions=[],
+        ))
+    if not results and (selections or invalid_output):
+        raise PlaceModelOutputInvalid("Recommendation model returned no verifiable places")
+    return results
 
 
 def label(aspect: str) -> str:

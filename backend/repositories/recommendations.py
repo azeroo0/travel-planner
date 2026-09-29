@@ -1,12 +1,76 @@
+from dataclasses import dataclass
+
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.annotation import ReviewAnnotation
 from backend.models.aspect import Aspect
-from backend.models.catalog import PlaceCategory
+from backend.models.catalog import District, PlaceCategory, Region
 from backend.models.place import Place
 from backend.models.review import Review
 from backend.models.scrap import Scrap
+
+
+@dataclass(frozen=True)
+class PlaceCandidate:
+    place_id: int
+    name: str
+    category: str
+    region: str
+
+
+async def recommendation_candidates(
+    session: AsyncSession, *, category: str | None, after_id: int, batch_size: int,
+) -> list[PlaceCandidate]:
+    """프론트가 표시할 수 있는 장소를 ID 순서로 한 배치 조회한다."""
+    query = (
+        select(Place.place_id, Place.place_name, PlaceCategory.category_code, Region.region_code)
+        .join(PlaceCategory, PlaceCategory.category_id == Place.category_id)
+        .join(District, District.district_id == Place.district_id)
+        .join(Region, Region.region_id == District.region_id)
+        .where(
+            Place.place_id > after_id,
+            Place.place_name.is_not(None),
+            PlaceCategory.category_code.in_(("hotel", "restaurant", "attraction")),
+            Region.region_code.in_(("haeundae", "gwangan", "seomyeon", "wondo", "west")),
+        )
+        .order_by(Place.place_id)
+        .limit(batch_size)
+    )
+    if category is not None:
+        query = query.where(PlaceCategory.category_code == category)
+    rows = await session.execute(query)
+    return [PlaceCandidate(*row) for row in rows]
+
+
+async def candidate_reviews(
+    session: AsyncSession, place_ids: list[int], *, per_place: int,
+) -> dict[int, dict[int, str]]:
+    """장소마다 최신 실제 리뷰 몇 개의 ID와 원문을 함께 읽는다."""
+    if not place_ids:
+        return {}
+    ranked = (
+        select(
+            Review.place_id.label("place_id"),
+            Review.review_id.label("review_id"),
+            Review.review_text.label("review_text"),
+            func.row_number().over(
+                partition_by=Review.place_id, order_by=Review.review_id.desc(),
+            ).label("review_rank"),
+        )
+        .where(Review.place_id.in_(place_ids), Review.is_synthetic.is_(False))
+        .subquery()
+    )
+    rows = await session.execute(
+        select(ranked.c.place_id, ranked.c.review_id, ranked.c.review_text)
+        .where(ranked.c.review_rank <= per_place)
+        .order_by(ranked.c.place_id, ranked.c.review_rank)
+    )
+    reviews: dict[int, dict[int, str]] = {}
+    for place_id, review_id, review_text in rows:
+        if review_text.strip():
+            reviews.setdefault(place_id, {})[review_id] = review_text
+    return reviews
 
 
 async def user_scraps(session: AsyncSession, *, user_id: int, scrap_ids: list[int]) -> list[Scrap]:
