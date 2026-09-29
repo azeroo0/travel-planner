@@ -9,6 +9,8 @@
     "datas/common/normalize_evidence.py",
     "datas/common/unify_labels.py",
     "datas/common/build_real_test.py",
+    "datas/common/select_review_subset.py",
+    "datas/common/build_real_gold.py",
     "datas/common/build_manifest.py"
   ],
   "files": {
@@ -102,6 +104,23 @@
       "restaurant/waiting_time": 1,
       "attraction/photo_spots": 1
     }
+  },
+  "test_real_gold": {
+    "tier": "gold (사람이 원문과 대조해 승인, evidence 경계와 중복만 기계적으로 정리)",
+    "reviews": 50,
+    "categories": {
+      "hotel": 15,
+      "restaurant": 20,
+      "attraction": 15
+    },
+    "aspect_count": 146,
+    "sentiment": {
+      "neutral": 26,
+      "positive": 97,
+      "negative": 23
+    },
+    "reviews_edited_by_human": 41,
+    "note": "test_real 146건에서 카테고리 비율에 맞춰 50건만 검수했다. 표본이 작아 aspect별 점수는 신뢰하지 않는다"
   },
   "synthetic_test_audit": {
     "records": 172,
