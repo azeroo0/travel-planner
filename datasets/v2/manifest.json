@@ -1,0 +1,116 @@
+{
+  "dataset_name": "busan_review_sft_v2",
+  "derived_from": [
+    "datasets/ (busan_review_sft_v1)",
+    "tripadvisor_reviews.xlsx"
+  ],
+  "created_by": [
+    "datas/common/clean_silver.py",
+    "datas/common/normalize_evidence.py",
+    "datas/common/build_real_test.py",
+    "datas/common/build_manifest.py"
+  ],
+  "files": {
+    "train.jsonl": 2578,
+    "validation.jsonl": 371,
+    "test_real.jsonl": 146
+  },
+  "cleaning": {
+    "max_per_place": 15,
+    "seed": 42,
+    "train": {
+      "input_reviews": 3087,
+      "output_reviews": 2578,
+      "removed_duplicate_aspects": 402,
+      "normalized_evidence": 4382,
+      "dropped_empty_reviews": 0,
+      "dropped_by_place_cap": 509,
+      "categories": {
+        "hotel": 567,
+        "restaurant": 1104,
+        "attraction": 907
+      },
+      "max_reviews_per_place": 15
+    },
+    "validation": {
+      "input_reviews": 371,
+      "output_reviews": 371,
+      "removed_duplicate_aspects": 54,
+      "normalized_evidence": 503,
+      "dropped_empty_reviews": 0,
+      "dropped_by_place_cap": 0,
+      "categories": {
+        "hotel": 80,
+        "restaurant": 137,
+        "attraction": 154
+      },
+      "max_reviews_per_place": 28
+    },
+    "test_normalized": {
+      "reviews": 172,
+      "normalized_evidence": 268
+    }
+  },
+  "test_normalized": "datasets/v2/test_normalized.jsonl: Gold test의 evidence 경계만 맞춘 사본. label_raw에 원본이 있고 사람 승인 전까지 Gold 대신 쓰지 않는다",
+  "test_real": {
+    "synthetic": false,
+    "tier": "silver (사람 검수 전 초안)",
+    "labeler": "claude-sonnet-5-5",
+    "reviews": 146,
+    "places": 73,
+    "reviews_without_aspects": 39,
+    "aspect_count": 246,
+    "sentiment": {
+      "neutral": 22,
+      "positive": 182,
+      "negative": 42
+    },
+    "translated_reviews": 114,
+    "aspect_support": {
+      "restaurant/food_quality": 55,
+      "restaurant/staff_service": 22,
+      "hotel/cleanliness": 20,
+      "hotel/staff_service": 17,
+      "restaurant/atmosphere": 17,
+      "hotel/amenities": 15,
+      "hotel/room_size": 13,
+      "hotel/view_quality": 13,
+      "hotel/bathroom_quality": 9,
+      "attraction/scenery": 9,
+      "restaurant/portion": 8,
+      "hotel/bed_comfort": 7,
+      "hotel/room_condition": 6,
+      "attraction/stay_duration": 5,
+      "restaurant/cleanliness": 5,
+      "restaurant/freshness": 4,
+      "restaurant/serving_speed": 3,
+      "hotel/breakfast_quality": 3,
+      "attraction/weather_sensitivity": 3,
+      "restaurant/noise_level": 2,
+      "restaurant/seating_comfort": 1,
+      "hotel/noise_level": 1,
+      "attraction/rest_facilities": 1,
+      "attraction/slope_stairs": 1,
+      "attraction/activity_variety": 1,
+      "attraction/walking_burden": 1,
+      "restaurant/parking_availability": 1,
+      "restaurant/parking_experience": 1,
+      "restaurant/waiting_time": 1,
+      "attraction/photo_spots": 1
+    }
+  },
+  "synthetic_test_audit": {
+    "records": 172,
+    "median_seconds_between_reviews": 1.0,
+    "reviews_within_5s": 120,
+    "edited": 11,
+    "note": "검수 시간 간격이 짧아 원문 대조 여부를 확인할 수 없다. 재검수 전까지 합성 test 점수는 참고용으로만 쓴다."
+  },
+  "known_limits": [
+    "test_real은 광안리·수영구·남구 중심이고 146건이라 aspect별 정답 수가 적다",
+    "test_real은 78%가 기계번역 문장이다",
+    "test_real 라벨은 초안이라 사람이 승인하기 전에는 Gold가 아니다",
+    "train의 근거 약한 추론 라벨 같은 노이즈는 자동 규칙으로 걸러지지 않았다",
+    "evidence 경계 규칙은 validation의 첫 어절 빈도로 정했고 test는 보지 않았다"
+  ]
+}
