@@ -1,0 +1,349 @@
+<title>TripFit QLoRA v2 평가</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 단일 컬럼 리포트. 요약 수치 → 유형별 → aspect별 → Judge → 주의점 순서로 읽힌다. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #141821;
+  --ink-2: #4a5263;
+  --ink-3: #7a8294;
+  --rule: #e2e6ee;
+  --track: #eceff4;
+  --bar: #2a78d6;
+  --bar-2: #8fb6e8;
+  --bar-3: #d2e1f5;
+  --warn: #b35c00;
+  --warn-bg: #fff4e5;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121418; --surface: #1a1d23; --ink: #f1f3f7; --ink-2: #b8bfcc; --ink-3: #8a92a3;
+    --rule: #2c313b; --track: #262a33; --bar: #3987e5; --bar-2: #2a5a96; --bar-3: #22334d;
+    --warn: #f0a24a; --warn-bg: #2b2115;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121418; --surface: #1a1d23; --ink: #f1f3f7; --ink-2: #b8bfcc; --ink-3: #8a92a3;
+  --rule: #2c313b; --track: #262a33; --bar: #3987e5; --bar-2: #2a5a96; --bar-3: #22334d;
+  --warn: #f0a24a; --warn-bg: #2b2115;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.65; padding-inline: 20px; }
+main { max-width: 920px; margin: 0 auto; padding-block: 40px 64px; display: grid; gap: 44px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.3; }
+h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 20px; font-weight: 600; }
+h3 { font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+.num, td.n, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+header { display: grid; gap: 12px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--ink-3); }
+.meta b { color: var(--ink-2); font-weight: 500; }
+section { display: grid; gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 20px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.kpi .label { font-size: 13px; color: var(--ink-2); }
+.kpi .value { font-family: var(--font-mono); font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.kpi .sub { font-size: 12px; color: var(--ink-3); }
+@media (max-width: 680px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 9px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+th { font-weight: 500; color: var(--ink-3); font-size: 12px; letter-spacing: 0.04em; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+td.note { color: var(--ink-2); }
+tr:last-child td { border-bottom: 0; }
+
+/* bar rows */
+.bars { display: grid; gap: 4px; }
+.bar-row { display: grid; grid-template-columns: 170px 1fr 52px; align-items: center; gap: 12px; padding: 3px 4px; border-radius: 6px; }
+.bar-row:hover, .bar-row:focus-visible { background: var(--track); outline: none; }
+.bar-row .name { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.bar-row .val { font-family: var(--font-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.track { position: relative; height: 12px; }
+.track .grid { position: absolute; inset: 0; background-image: linear-gradient(to right, var(--rule) 1px, transparent 1px); background-size: 25% 100%; }
+.track .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar); border-radius: 0 4px 4px 0; }
+.axis { display: grid; grid-template-columns: 170px 1fr 52px; gap: 12px; padding-inline: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+.axis .ticks { display: flex; justify-content: space-between; }
+.bar-row.low .name { color: var(--ink); font-weight: 500; }
+.bar-row.low .name::after { content: " · 약함"; font-family: var(--font-body); font-size: 11px; color: var(--warn); font-weight: 500; }
+@media (max-width: 520px) {
+  .bar-row, .axis { grid-template-columns: 120px 1fr 44px; gap: 8px; }
+}
+
+/* stacked judge criteria */
+.stack-row { display: grid; grid-template-columns: 170px 1fr; gap: 12px; align-items: center; padding: 4px; border-radius: 6px; }
+.stack-row:hover { background: var(--track); }
+.stack-row .name { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.stack { display: flex; gap: 2px; height: 22px; }
+.stack span { display: flex; align-items: center; padding-inline: 6px; font-family: var(--font-mono); font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.stack span:first-child { border-radius: 4px 0 0 4px; }
+.stack span:last-child { border-radius: 0 4px 4px 0; }
+.s-pass { background: var(--bar); color: #fff !important; }
+.s-partial { background: var(--bar-2); }
+.s-fail { background: var(--bar-3); }
+:root[data-theme="dark"] .s-partial, :root[data-theme="dark"] .s-fail { color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+@media (max-width: 520px) { .stack-row { grid-template-columns: 1fr; gap: 4px; } }
+
+.score-dist { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; align-items: end; height: 150px; }
+.col { display: grid; grid-template-rows: auto 1fr; gap: 4px; height: 100%; align-items: end; text-align: center; }
+.col .c { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.col .b { background: var(--bar); border-radius: 4px 4px 0 0; min-height: 2px; align-self: end; }
+.score-axis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: center; border-top: 1px solid var(--rule); padding-top: 4px; }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+
+.findings { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.findings li { display: grid; gap: 2px; padding-left: 14px; border-left: 2px solid var(--rule); }
+.findings li b { font-weight: 600; }
+.findings li span { color: var(--ink-2); }
+
+.caveats { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: c; }
+.caveats li { background: var(--warn-bg); border-radius: 8px; padding: 12px 14px; display: grid; gap: 2px; }
+.caveats li b { color: var(--warn); font-weight: 600; }
+.caveats li span { color: var(--ink-2); }
+
+.glossary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 24px; }
+.glossary div { display: grid; gap: 2px; font-size: 14px; }
+.glossary dt { font-weight: 600; }
+.glossary dd { margin: 0; color: var(--ink-2); }
+@media (max-width: 640px) { .glossary { grid-template-columns: 1fr; } }
+
+code { font-family: var(--font-mono); font-size: 0.9em; background: var(--track); padding: 1px 5px; border-radius: 4px; }
+
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 6px; font-family: var(--font-mono); line-height: 1.5; z-index: 10; white-space: pre; }
+@media (prefers-reduced-motion: no-preference) { .track .fill { transition: width .4s ease-out; } }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">TripFit · 리뷰 구조화 추출 평가</div>
+    <h1>QLoRA v2 평가 결과</h1>
+    <p>부산 호텔·식당·관광지 리뷰를 Context / Aspect / Attribute / Sentiment / Evidence로 뽑아내는 <code>qwen3_4b_qlora_v2</code>를 Gold 테스트셋 172건으로 평가한 결과입니다. 이번 실행에는 이 모델 하나만 들어 있어 Base·LoRA와의 비교는 아직 할 수 없습니다.</p>
+    <div class="meta">
+      <span><b>모델</b> Qwen/Qwen3-4B-Instruct-2507 + QLoRA 어댑터</span>
+      <span><b>테스트셋</b> datasets/v2/test_normalized.jsonl · 172건</span>
+      <span><b>Judge</b> gpt-4.1-mini</span>
+      <span><b>실행</b> evaluation/runs/qwen-normalized</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>한눈에 보기</h2>
+    <div class="kpis">
+      <div class="kpi"><span class="label">Aspect F1</span><span class="value">0.778</span><span class="sub">P 0.806 · R 0.752</span></div>
+      <div class="kpi"><span class="label">Evidence 포함 F1</span><span class="value">0.630</span><span class="sub">겹침 50% 기준 0.717</span></div>
+      <div class="kpi"><span class="label">Traveler context F1</span><span class="value">0.963</span><span class="sub">여행자 유형은 거의 정확</span></div>
+      <div class="kpi"><span class="label">Judge 통과율</span><span class="value">29.1%</span><span class="sub">평균 점수 0.712</span></div>
+    </div>
+    <ul class="findings">
+      <li><b>형식과 근거는 안정적입니다.</b><span>JSON 성공 100%, Schema Valid 98.8%, Evidence 원문 포함률 99.7%입니다. 없는 근거를 지어내는 일은 거의 없습니다.</span></li>
+      <li><b>감성은 거의 맞힙니다.</b><span>category와 attribute가 맞은 519쌍 중 96.1%는 sentiment도 맞았습니다.</span></li>
+      <li><b>오류는 aspect를 고르는 단계에서 납니다.</b><span>정답 aspect 664개 중 619개만 예측해 적게 뽑는 편이고, 뜻이 비슷한 aspect끼리 헷갈립니다.</span></li>
+      <li><b>관광지가 가장 약합니다.</b><span>관광지 Aspect F1은 0.679, Judge 통과율은 16.7%로 호텔·식당의 절반 수준입니다.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>자동 지표</h2>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>지표</th><th class="n">Precision</th><th class="n">Recall</th><th class="n">F1 / 비율</th><th>해석</th></tr></thead>
+        <tbody>
+          <tr><td>JSON 성공률</td><td class="n">–</td><td class="n">–</td><td class="n">1.000</td><td class="note">172건 모두 파싱됨</td></tr>
+          <tr><td>Schema Valid</td><td class="n">–</td><td class="n">–</td><td class="n">0.988</td><td class="note">허용되지 않은 aspect·값을 낸 건 2건</td></tr>
+          <tr><td>Traveler context</td><td class="n">0.959</td><td class="n">0.967</td><td class="n">0.963</td><td class="note"></td></tr>
+          <tr><td>Aspect</td><td class="n">0.806</td><td class="n">0.752</td><td class="n">0.778</td><td class="note">category·attribute·sentiment 모두 일치해야 정답</td></tr>
+          <tr><td>Aspect + Evidence (완전 일치)</td><td class="n">0.653</td><td class="n">0.608</td><td class="n">0.630</td><td class="note">normalized 지표도 같은 값</td></tr>
+          <tr><td>Aspect + Evidence (IoU ≥ 0.5)</td><td class="n">0.743</td><td class="n">0.693</td><td class="n">0.717</td><td class="note">근거 구간 경계만 다른 경우가 많음</td></tr>
+          <tr><td>Evidence 원문 포함률</td><td class="n">–</td><td class="n">–</td><td class="n">0.997</td><td class="note"></td></tr>
+          <tr><td>Record Exact Match</td><td class="n">–</td><td class="n">–</td><td class="n">0.163</td><td class="note">리뷰 하나의 출력 전체가 정답과 같은 비율</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>장소 유형별</h2>
+    <p>Aspect F1과 Judge 통과율을 장소 유형별로 나눴습니다. 유형별 F1은 예측 파일과 Gold를 같은 기준(category·attribute·sentiment 일치)으로 다시 계산한 값입니다.</p>
+    <div class="two">
+      <div class="panel" style="display:grid;gap:10px">
+        <h3>Aspect F1</h3>
+        <div class="bars" id="dom-f1"></div>
+        <div class="axis"><span></span><span class="ticks"><span>0</span><span>0.25</span><span>0.5</span><span>0.75</span><span>1</span></span><span></span></div>
+      </div>
+      <div class="panel" style="display:grid;gap:10px">
+        <h3>Judge 통과율</h3>
+        <div class="bars" id="dom-pass"></div>
+        <div class="axis"><span></span><span class="ticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></span><span></span></div>
+      </div>
+    </div>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>유형</th><th class="n">리뷰 수</th><th class="n">Precision</th><th class="n">Recall</th><th class="n">F1</th><th class="n">Judge 통과율</th></tr></thead>
+        <tbody>
+          <tr><td>식당</td><td class="n">65</td><td class="n">0.873</td><td class="n">0.816</td><td class="n">0.844</td><td class="n">35.4%</td></tr>
+          <tr><td>호텔</td><td class="n">53</td><td class="n">0.856</td><td class="n">0.753</td><td class="n">0.801</td><td class="n">34.0%</td></tr>
+          <tr><td>관광지</td><td class="n">54</td><td class="n">0.688</td><td class="n">0.671</td><td class="n">0.679</td><td class="n">16.7%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Aspect별 F1</h2>
+    <p>정답 건수가 많은 순서입니다. F1이 0.70 미만인 aspect는 약함으로 표시했습니다. 대부분 관광지 aspect이고, <code>slope_stairs</code>·<code>walking_burden</code>, <code>scenery</code>·<code>view_quality</code>·<code>photo_spots</code>처럼 뜻이 가까운 것끼리 헷갈리는 것으로 보입니다.</p>
+    <div class="panel" style="display:grid;gap:10px">
+      <div class="bars" id="asp"></div>
+      <div class="axis"><span></span><span class="ticks"><span>0</span><span>0.25</span><span>0.5</span><span>0.75</span><span>1</span></span><span></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>GPT Judge</h2>
+    <p>통과율은 29.1%로 낮지만 평균 점수는 0.712입니다. Judge가 aspect 하나만 빠져도 0.5점으로 불합격 처리하기 때문입니다. 0.5점이 76건이고 0점은 1건뿐입니다.</p>
+    <div class="two">
+      <div class="panel" style="display:grid;gap:12px">
+        <h3>점수 분포 (건수)</h3>
+        <div class="score-dist" id="dist"></div>
+        <div class="score-axis" id="dist-axis"></div>
+      </div>
+      <div class="panel" style="display:grid;gap:10px">
+        <h3>상위 오류 유형 (건수)</h3>
+        <div class="bars" id="tags"></div>
+        <p style="font-size:12px;color:var(--ink-3)">표기만 다른 태그는 합쳤습니다. 예: <code>attribute_mismatch</code>, <code>incorrect_attribute</code>, <code>attribute_incorrect</code></p>
+      </div>
+    </div>
+    <div class="panel" style="display:grid;gap:12px">
+      <h3>기준별 판정 (172건)</h3>
+      <div class="legend"><span><i class="s-pass"></i>pass</span><span><i class="s-partial"></i>partial</span><span><i class="s-fail"></i>fail</span></div>
+      <div class="bars" id="crit"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>결과를 볼 때 주의할 점</h2>
+    <ul class="caveats">
+      <li><b>비교 대상이 없습니다.</b><span>현재 config.json에서 v1이 빠졌고(커밋 전 변경), 직전 커밋에서 Base도 빠졌습니다. 이 결과로는 Base 대비 개선 폭을 알 수 없습니다.</span></li>
+      <li><b>Judge 모델이 설정과 다릅니다.</b><span>config.json에는 gpt-5-mini로 되어 있지만 결과 파일은 gpt-4.1-mini로 채점된 것입니다. 설정을 바꾸기 전에 만든 결과인지 확인이 필요합니다.</span></li>
+      <li><b>normalized 지표가 strict 지표와 완전히 같습니다.</b><span>둘 다 0.6298입니다. 정규화로 달라진 사례가 하나도 없거나, 정규화가 실제로 적용되지 않았을 수 있습니다.</span></li>
+      <li><b>테스트셋 172건이 모두 합성 리뷰입니다.</b><span>Gold 등급이지만 synthetic: true이므로 실제 사용자 리뷰에서의 성능은 따로 확인해야 합니다.</span></li>
+      <li><b>사람 검수 결과가 아직 없습니다.</b><span>human_review.html은 만들어졌지만 검수 결과는 반영되지 않았습니다.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>다음 단계</h2>
+    <ul class="findings">
+      <li><b>같은 조건으로 비교 실행</b><span>Base와 v1을 config.json에 다시 넣고, 같은 Judge 모델로 다시 돌립니다.</span></li>
+      <li><b>관광지 라벨 기준 점검</b><span>헷갈리는 aspect 쌍의 구분 기준을 annotation guideline에서 먼저 확인합니다.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>용어</h2>
+    <dl class="glossary panel">
+      <div><dt>QLoRA</dt><dd>원본 모델을 4bit로 압축해 올린 뒤, 옆에 붙인 작은 저랭크 행렬만 학습하는 방식입니다.</dd></div>
+      <div><dt>Precision / Recall / F1</dt><dd>Precision은 뽑은 것 중 정답 비율, Recall은 정답 중 찾아낸 비율, F1은 둘의 조화평균입니다.</dd></div>
+      <div><dt>IoU</dt><dd>두 텍스트 구간이 겹치는 부분을 합친 부분으로 나눈 값입니다. 0.5 이상이면 대체로 같은 근거로 봅니다.</dd></div>
+      <div><dt>LLM Judge</dt><dd>다른 LLM에게 정답과 모델 출력을 함께 주고 기준별로 채점하게 하는 평가 방식입니다.</dd></div>
+      <div><dt>Gold / Silver</dt><dd>Gold는 사람이 원문과 대조해 승인한 데이터, Silver는 자동 검사만 통과한 Teacher-LLM 출력입니다.</dd></div>
+      <div><dt>Record Exact Match</dt><dd>리뷰 하나에 대한 출력 전체가 정답과 완전히 같은 비율입니다.</dd></div>
+    </dl>
+  </section>
+</main>
+<div id="tip" hidden></div>
+
+<script>
+const tip = document.getElementById('tip');
+function bindTip(el, text) {
+  el.tabIndex = 0;
+  const show = e => { tip.textContent = text; tip.hidden = false; move(e); };
+  const move = e => {
+    const r = el.getBoundingClientRect();
+    const x = e && e.clientX != null ? e.clientX : r.left + 40;
+    const y = e && e.clientY != null ? e.clientY : r.top;
+    tip.style.left = Math.min(x + 12, innerWidth - tip.offsetWidth - 8) + 'px';
+    tip.style.top = (y + 14) + 'px';
+  };
+  el.addEventListener('mouseenter', show); el.addEventListener('mousemove', move);
+  el.addEventListener('mouseleave', () => tip.hidden = true);
+  el.addEventListener('focus', () => show()); el.addEventListener('blur', () => tip.hidden = true);
+}
+function bars(id, rows, max, fmt, lowAt) {
+  const root = document.getElementById(id);
+  for (const r of rows) {
+    const row = document.createElement('div');
+    row.className = 'bar-row' + (lowAt != null && r.v < lowAt ? ' low' : '');
+    row.innerHTML = `<span class="name"></span><span class="track"><span class="grid"></span><span class="fill"></span></span><span class="val"></span>`;
+    row.querySelector('.name').textContent = r.k;
+    row.querySelector('.fill').style.width = (r.v / max * 100) + '%';
+    row.querySelector('.val').textContent = fmt(r.v);
+    bindTip(row, r.tip || `${r.k}: ${fmt(r.v)}`);
+    root.appendChild(row);
+  }
+}
+const f3 = v => v.toFixed(2), pct = v => (v * 100).toFixed(1) + '%';
+
+bars('dom-f1', [
+  {k:'식당', v:.844, tip:'식당 (65건)\nP 0.873 · R 0.816 · F1 0.844'},
+  {k:'호텔', v:.801, tip:'호텔 (53건)\nP 0.856 · R 0.753 · F1 0.801'},
+  {k:'관광지', v:.679, tip:'관광지 (54건)\nP 0.688 · R 0.671 · F1 0.679'},
+], 1, v => v.toFixed(3));
+bars('dom-pass', [
+  {k:'식당', v:.354, tip:'식당: 23 / 65 통과 (35.4%)'},
+  {k:'호텔', v:.340, tip:'호텔: 18 / 53 통과 (34.0%)'},
+  {k:'관광지', v:.167, tip:'관광지: 9 / 54 통과 (16.7%)'},
+], 1, pct);
+
+const A = [
+ ['food_quality',63,.88,.73,.80],['parking_availability',60,.83,.82,.82],['parking_experience',56,.81,.75,.78],
+ ['activity_variety',37,.57,.68,.62],['atmosphere',36,.79,.83,.81],['staff_service',35,.97,.91,.94],
+ ['noise_level',33,.89,.76,.82],['walking_burden',30,.63,.73,.68],['room_condition',30,.83,.67,.74],
+ ['cleanliness',30,.93,.87,.90],['view_quality',24,.89,.71,.79],['scenery',22,.56,.64,.60],
+ ['stay_duration',20,.60,.45,.51],['seating_comfort',20,1,.75,.86],['rest_facilities',20,.86,.60,.71],
+ ['toilet_facilities',17,.83,.88,.86],['serving_speed',15,.93,.87,.90],['freshness',15,.93,.87,.90],
+ ['amenities',13,.78,.54,.64],['breakfast_quality',12,1,.92,.96],['slope_stairs',11,1,.27,.43],
+ ['portion',11,.83,.91,.87],['photo_spots',10,.88,.70,.78],['family_friendly',10,.73,.80,.76],
+ ['bed_comfort',10,.90,.90,.90],['waiting_time',7,.75,.86,.80],['room_size',7,.50,.71,.59],
+ ['weather_sensitivity',6,.67,.67,.67],['bathroom_quality',4,1,1,1]];
+bars('asp', A.map(([k,n,p,r,f]) => ({k, v:f, tip:`${k} (정답 ${n}개)\nP ${p.toFixed(2)} · R ${r.toFixed(2)} · F1 ${f.toFixed(2)}`})), 1, f3, .70);
+
+const TAGS = [['aspect 누락',61],['attribute 오류',28],['category 혼동',25],['불필요한 aspect',23],['sentiment 불일치',16],['evidence 문제',13]];
+bars('tags', TAGS.map(([k,v]) => ({k, v, tip:`${k}: ${v}건`})), 61, v => String(v));
+
+const D = [['0',1],['0.5',76],['0.6',2],['0.7',8],['0.75',10],['0.8',24],['0.9',1],['1.0',50]];
+const dist = document.getElementById('dist'), dax = document.getElementById('dist-axis');
+for (const [s,c] of D) {
+  const col = document.createElement('div'); col.className = 'col';
+  col.innerHTML = `<span class="c">${c}</span><span class="b" style="height:${c/76*100}%"></span>`;
+  bindTip(col, `점수 ${s}: ${c}건 (${(c/172*100).toFixed(1)}%)`);
+  dist.appendChild(col);
+  const t = document.createElement('span'); t.textContent = s; dax.appendChild(t);
+}
+
+const C = [['correctness',74,97,1],['completeness',80,91,1],['evidence_grounding',167,5,0],['evidence_minimality',166,5,1],['schema_adherence',165,0,7]];
+const crit = document.getElementById('crit');
+for (const [k,p,pa,f] of C) {
+  const row = document.createElement('div'); row.className = 'stack-row';
+  const segs = [['s-pass',p],['s-partial',pa],['s-fail',f]].filter(x => x[1] > 0)
+    .map(([c,v]) => `<span class="${c}" style="flex:${v} 1 0">${v >= 12 ? v : ''}</span>`).join('');
+  row.innerHTML = `<span class="name">${k}</span><span class="stack">${segs}</span>`;
+  bindTip(row, `${k}\npass ${p} · partial ${pa} · fail ${f}`);
+  crit.appendChild(row);
+}
+</script>
