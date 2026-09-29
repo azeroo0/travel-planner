@@ -19,3 +19,34 @@ class PlaceRead(BaseModel):
     intro_text: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class ProfileAspect(BaseModel):
+    aspect: str
+    polarity: str
+    share: float  # 해당 aspect를 이 polarity로 언급한 리뷰 비율(%)
+    mentions: int  # 해당 aspect를 이 polarity로 언급한 리뷰 수
+
+
+class ProfileContext(BaseModel):
+    context: str
+    ratio: float  # 이 동행 유형이 표시된 리뷰 비율(%)
+
+
+class PlaceProfile(BaseModel):
+    place_id: int
+    review_count: int
+    aspects: list[ProfileAspect]
+    contexts: list[ProfileContext]
+    # 동행 유형별 긍정 annotation 비율(%) = positive / (positive + negative)
+    context_satisfaction: dict[str, float]
+
+
+class EvidenceReview(BaseModel):
+    review_id: int
+    text: str
+    context: list[str]
+    attribute: str
+    sentiment: str
+    evidence_start: int
+    evidence_end: int
