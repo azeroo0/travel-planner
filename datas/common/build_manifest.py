@@ -38,6 +38,18 @@ def real_test_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def real_gold_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "tier": "gold (사람이 원문과 대조해 승인, evidence 경계와 중복만 기계적으로 정리)",
+        "reviews": len(rows),
+        "categories": dict(Counter(r["category"] for r in rows)),
+        "aspect_count": sum(len(r["label"]["aspects"]) for r in rows),
+        "sentiment": dict(Counter(a["sentiment"] for r in rows for a in r["label"]["aspects"])),
+        "reviews_edited_by_human": sum(r["decision"]["edited"] for r in rows),
+        "note": "test_real 146건에서 카테고리 비율에 맞춰 50건만 검수했다. 표본이 작아 aspect별 점수는 신뢰하지 않는다",
+    }
+
+
 def synthetic_test_audit(rows: list[dict[str, Any]]) -> dict[str, Any]:
     times = sorted(datetime.fromisoformat(r["decision"]["reviewed_at"]) for r in rows)
     gaps = [(later - earlier).total_seconds() for earlier, later in zip(times, times[1:])]
@@ -61,12 +73,15 @@ def main() -> None:
             "datas/common/normalize_evidence.py",
             "datas/common/unify_labels.py",
             "datas/common/build_real_test.py",
+            "datas/common/select_review_subset.py",
+            "datas/common/build_real_gold.py",
             "datas/common/build_manifest.py",
         ],
         "files": {"train.jsonl": len(train), "validation.jsonl": len(validation), "test_real.jsonl": len(real)},
         "cleaning": json.loads((V2 / "clean_report.json").read_text(encoding="utf-8")),
         "test_normalized": "datasets/v2/test_normalized.jsonl: Gold test의 evidence 경계만 맞춘 사본. label_raw에 원본이 있고 사람 승인 전까지 Gold 대신 쓰지 않는다",
         "test_real": real_test_summary(real),
+        "test_real_gold": real_gold_summary(read_jsonl(V2 / "test_real_gold.jsonl")) if (V2 / "test_real_gold.jsonl").exists() else None,
         "synthetic_test_audit": synthetic_test_audit(read_jsonl(ROOT / "datasets/test.jsonl")),
         "known_limits": [
             "test_real은 광안리·수영구·남구 중심이고 146건이라 aspect별 정답 수가 적다",
