@@ -72,6 +72,20 @@ JSONL 한 줄이 리뷰 한 건입니다.
 | 기대 대비 | 기대보다 어땠는지를 상태로 봄 | "생각보다 방이 넓었어요" → `room_size` / `spacious` / `positive` |
 | 추측·전언 | 직접 경험이 아니면 달지 않음 | "주말엔 줄이 길다던데" → 없음 |
 
+### 호텔의 `cleanliness`와 `room_condition`
+
+두 aspect는 뜻으로 나눠서 단다. 같은 "깨끗하다"를 어떨 땐 하나로, 어떨 땐 다른 하나로 달지 않는다.
+
+| aspect | 무엇을 말할 때 | 표현 예 | attribute |
+|---|---|---|---|
+| `cleanliness` | 더럽거나 깨끗한 정도 | 깨끗해요, 깔끔해요, 청결해요, 지저분해요, 얼룩이 있어요, 곰팡이가 있어요 | `clean` / `average` / `dirty` |
+| `room_condition` | 시설이 낡았거나 잘 갖춰진 정도 | 낡았어요, 오래됐어요, 리모델링했어요, 고장 났어요, 세련됐어요 | `well_kept` / `average` / `worn` |
+
+- 한 구절에 청결 표현만 있으면 `cleanliness`, 시설 상태 표현만 있으면 `room_condition`이다.
+- "깨끗하고 낡았다"처럼 두 표현이 함께 있으면 구절을 나눠 aspect를 두 개로 답다. 나눌 수 없으면 더 분명한 쪽 하나만 단다.
+- "깨끗하게 관리되어 있어요"는 청결 표현이 있으므로 `cleanliness`다.
+- 학습 데이터는 `datas/common/unify_labels.py`가 이 기준으로 맞춘다.
+
 ## 4. traveler_context
 
 - 리뷰에 **누구와 갔는지 적혀 있을 때만** 답니다. "우리 갔어요"만으로는 `couple`로 달지 않습니다.
