@@ -11,6 +11,8 @@ test(Gold)는 이 스크립트가 건드리지 않는다.
 3. 규칙 1 이후 aspect가 없는 리뷰는 뺀다.
 4. evidence의 자르는 경계를 normalize_evidence.py의 기준으로 맞춘다. 바뀐 레코드에는 원래 label을 label_raw로 남긴다.
    (label_raw는 감사용이라 학습 입력에 들어가지 않는다. 학습은 label만 쓴다.)
+5. 호텔의 cleanliness와 room_condition을 unify_labels.py의 기준으로 나눈다. train·validation에만 적용하고
+   Gold test는 고치지 않으며, 기준을 적용하면 바뀔 test 라벨 수만 보고서에 남긴다.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from normalize_evidence import normalize_label
+from unify_labels import unify_label
 
 ROOT = Path(__file__).resolve().parents[2]
 DATASETS = ROOT / "datasets"
@@ -59,12 +62,15 @@ def normalize_record(record: dict[str, Any]) -> tuple[dict[str, Any], int]:
     return {**record, "label": label, "label_raw": record["label"]}, changed
 
 
-def clean_record(record: dict[str, Any]) -> tuple[dict[str, Any], int, int]:
+def clean_record(record: dict[str, Any]) -> tuple[dict[str, Any], int, int, int]:
+    """경계 정규화, 호텔 라벨 통일, 중복 제거를 차례로 적용한다. (레코드, 제거한 중복, 바뀐 evidence, 바뀐 aspect)를 돌려준다."""
     normalized, changed = normalize_record(record)
-    aspects = normalized["label"]["aspects"]
-    kept = dedupe_aspects(aspects)
-    cleaned = {**normalized, "label": {**normalized["label"], "aspects": kept}}
-    return cleaned, len(aspects) - len(kept), changed
+    label, relabeled = unify_label(normalized["label"], normalized["category"])
+    kept = dedupe_aspects(label["aspects"])
+    cleaned = {**normalized, "label": {**label, "aspects": kept}}
+    if relabeled and "label_raw" not in cleaned:
+        cleaned["label_raw"] = record["label"]
+    return cleaned, len(label["aspects"]) - len(kept), changed, relabeled
 
 
 def cap_per_place(rows: list[dict[str, Any]], limit: int, seed: int) -> list[dict[str, Any]]:
@@ -83,11 +89,12 @@ def cap_per_place(rows: list[dict[str, Any]], limit: int, seed: int) -> list[dic
 
 def clean_split(rows: list[dict[str, Any]], max_per_place: int | None, seed: int) -> tuple[list[dict[str, Any]], dict[str, int]]:
     cleaned_rows = []
-    removed_duplicates = normalized_evidence = 0
+    removed_duplicates = normalized_evidence = relabeled_condition = 0
     for row in rows:
-        cleaned, removed, changed = clean_record(row)
+        cleaned, removed, changed, relabeled = clean_record(row)
         removed_duplicates += removed
         normalized_evidence += changed
+        relabeled_condition += relabeled
         if cleaned["label"]["aspects"]:
             cleaned_rows.append(cleaned)
     dropped_empty = len(rows) - len(cleaned_rows)
@@ -98,6 +105,7 @@ def clean_split(rows: list[dict[str, Any]], max_per_place: int | None, seed: int
         "output_reviews": len(cleaned_rows),
         "removed_duplicate_aspects": removed_duplicates,
         "normalized_evidence": normalized_evidence,
+        "relabeled_hotel_condition": relabeled_condition,
         "dropped_empty_reviews": dropped_empty,
         "dropped_by_place_cap": len(rows) - dropped_empty - len(cleaned_rows),
     }
@@ -132,7 +140,8 @@ def main() -> None:
         print(name, json.dumps(stats, ensure_ascii=False))
     test_rows, changed = normalize_test(read_jsonl(args.input / "test.jsonl"))
     write_jsonl(args.output / "test_normalized.jsonl", test_rows)
-    report["test_normalized"] = {"reviews": len(test_rows), "normalized_evidence": changed}
+    test_would_relabel = sum(unify_label(row["label"], row["category"])[1] for row in test_rows)
+    report["test_normalized"] = {"reviews": len(test_rows), "normalized_evidence": changed, "hotel_labels_the_rule_would_change_but_did_not": test_would_relabel}
     print("test_normalized", json.dumps(report["test_normalized"], ensure_ascii=False))
     (args.output / "clean_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 

@@ -59,6 +59,7 @@ def main() -> None:
         "created_by": [
             "datas/common/clean_silver.py",
             "datas/common/normalize_evidence.py",
+            "datas/common/unify_labels.py",
             "datas/common/build_real_test.py",
             "datas/common/build_manifest.py",
         ],
@@ -73,6 +74,7 @@ def main() -> None:
             "test_real 라벨은 초안이라 사람이 승인하기 전에는 Gold가 아니다",
             "train의 근거 약한 추론 라벨 같은 노이즈는 자동 규칙으로 걸러지지 않았다",
             "evidence 경계 규칙은 validation의 첫 어절 빈도로 정했고 test는 보지 않았다",
+            "호텔 cleanliness·room_condition 통일은 train·validation에만 적용했고, 같은 기준을 적용하면 바뀔 test 라벨은 clean_report.json에 개수만 남겼다",
         ],
     }
     (V2 / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
