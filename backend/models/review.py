@@ -21,8 +21,9 @@ class Review(Base):
     source: Mapped[str] = mapped_column(String(50))
     external_review_id: Mapped[str] = mapped_column(String(200))
     source_member: Mapped[str | None] = mapped_column(String(50))
-    dataset_split: Mapped[str] = mapped_column(String(20))
-    label_tier: Mapped[str] = mapped_column(String(20))
+    # 학습 데이터셋 리뷰만 값이 있고, 서비스용 실제 리뷰(Tripadvisor 등)는 NULL이다.
+    dataset_split: Mapped[str | None] = mapped_column(String(20))
+    label_tier: Mapped[str | None] = mapped_column(String(20))
     is_synthetic: Mapped[bool] = mapped_column(Boolean)
     review_text: Mapped[str] = mapped_column(Text)
     raw_record: Mapped[dict[str, Any]] = mapped_column(JSONB)
