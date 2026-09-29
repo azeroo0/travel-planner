@@ -30,3 +30,19 @@ class ScrapRead(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class ScrapUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=300)
+
+
+class ScrapContentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    content_text: str | None
+    extraction_method: str | None
+    fetched_at: datetime | None
+
+
+class ScrapDetail(ScrapRead):
+    content: ScrapContentRead | None = None
