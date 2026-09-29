@@ -10,6 +10,8 @@ TrainMode = Literal["lora", "qlora"]
 class ModelConfig:
     mode: ModelMode
     model_id: str
+    # qlora가 아니어도 NF4 4bit로 올린다. 8GB GPU에서 Base를 QLoRA와 같은 정밀도로 비교할 때 쓴다.
+    load_in_4bit: bool = False
 
 
 @dataclass(frozen=True)

@@ -107,7 +107,8 @@ def load_model(config: ModelConfig | TrainConfig) -> PreTrainedModel:
         "torch_dtype": compute_dtype,
     }
 
-    if config.mode == "qlora":
+    quantize = config.mode == "qlora" or getattr(config, "load_in_4bit", False)
+    if quantize:
         load_kwargs["quantization_config"] = build_quantization_config(compute_dtype)
 
     model = AutoModelForCausalLM.from_pretrained(
