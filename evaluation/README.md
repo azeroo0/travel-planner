@@ -110,6 +110,27 @@ uv run python -m evaluation.run_pipeline \
 - Judge가 JSON이 아닌 답을 준 경우는 0점이 아니라 점수 없음으로 두어 평균에서 제외하고 `errors`로 셉니다.
 - 다른 Judge 모델로 다시 보려면 `--judge-model gpt-4.1-mini`처럼 지정합니다. 결과 파일이 모델별로 나뉩니다.
 
+## 후처리와 오류 분석
+
+추론 결과는 `travel_planner.model_cjm.postprocess`가 정리합니다. 잘린 JSON에서 끝까지 쓰인 aspect만 건져 오고, 스키마에 없는 값과 원문에 없는 evidence를 버리고, 같은 라벨의 중복을 없앱니다. 정리 전 label은 `raw_label`에 남으므로 `automatic_metrics.json`의 `raw_schema_valid_rate`가 모델이 실제로 스키마를 지킨 비율이고, `schema_valid_rate`는 후처리 뒤 값이라 높게 나옵니다. `json_success_rate`는 복구 전 기준이라 복구한 레코드 수는 `salvaged_records`로 따로 봅니다.
+
+이미 만든 예측 파일도 GPU 없이 다시 정리할 수 있습니다.
+
+```bash
+uv run python -m travel_planner.model_cjm.postprocess \
+  --input evaluation/runs/qwen-real/predictions/qwen3_4b_qlora_v2.jsonl \
+  --output evaluation/runs/qwen-real/predictions_postprocessed.jsonl
+```
+
+오류를 유형별로 세려면 다음처럼 실행합니다. 없는 aspect를 만든 경우, 정답이 빈 리뷰에서 만든 경우, 스키마 위반, 놓침을 나눠 보여 줍니다.
+
+```bash
+uv run python -m evaluation.error_analysis \
+  --gold datasets/v2/test_real.jsonl \
+  --predictions evaluation/runs/qwen-real/predictions/qwen3_4b_qlora_v2.jsonl \
+  --out evaluation/runs/qwen-real/error_analysis.json
+```
+
 ## 평가 기준
 
 자동 평가는 기존 Gold 기준과 동일하게 다음을 계산합니다.

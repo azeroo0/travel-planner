@@ -129,6 +129,7 @@ def evaluate_records(gold: dict[str, dict], predictions: dict[str, dict]) -> dic
     evidence_total = 0
     record_exact = 0
     schema_valid = 0
+    raw_schema_valid = raw_schema_seen = salvaged = 0
     for review_id, gold_record in gold.items():
         pred_record = predictions.get(review_id)
         if not pred_record or not isinstance(pred_record.get("label"), dict):
@@ -139,6 +140,11 @@ def evaluate_records(gold: dict[str, dict], predictions: dict[str, dict]) -> dic
         pred_label = _label(pred_record)
         if _schema_valid(pred_record, str(gold_record.get("category", ""))):
             schema_valid += 1
+        salvaged += bool(pred_record.get("salvaged"))
+        raw_label = pred_record.get("raw_label")
+        if isinstance(raw_label, dict):
+            raw_schema_seen += 1
+            raw_schema_valid += _schema_valid({"label": raw_label}, str(gold_record.get("category", "")))
         gold_context = Counter(gold_label.get("traveler_context", []))
         pred_context = Counter(pred_label.get("traveler_context", []))
         context_tp += sum((gold_context & pred_context).values())
@@ -167,6 +173,9 @@ def evaluate_records(gold: dict[str, dict], predictions: dict[str, dict]) -> dic
         "predicted_records": len(predictions),
         "json_success_rate": valid_json / total if total else 0.0,
         "schema_valid_rate": schema_valid / total if total else 0.0,
+        # 후처리 전 label로 잰 스키마 준수율. 후처리를 켜면 schema_valid_rate는 정의상 높아지므로 모델의 실제 값은 이쪽이다.
+        "raw_schema_valid_rate": raw_schema_valid / raw_schema_seen if raw_schema_seen else None,
+        "salvaged_records": salvaged,
         "aspect": _prf(*aspect),
         "aspect_with_evidence": _prf(*exact_aspect),
         "aspect_with_evidence_normalized": _prf(*normalized_aspect),

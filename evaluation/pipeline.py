@@ -53,7 +53,7 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             "model_id": model_id,
             "mode": mode,
             "adapter_path": adapter_path,
-            "max_new_tokens": int(model.get("max_new_tokens", 384)),
+            "max_new_tokens": int(model.get("max_new_tokens", 512)),
             "load_in_4bit": bool(model.get("load_in_4bit", False)),
         })
     gold = config.get("gold")
@@ -118,6 +118,8 @@ def normalize_prediction_record(record: dict[str, Any], model_name: str) -> dict
         "label": label,
         "json_valid": valid,
         "inference_error": None if valid else "invalid_json",
+        # 후처리 전 label과 후처리 내역. 모델이 스키마를 얼마나 어겼는지는 raw_label로 잰다.
+        **{key: record[key] for key in ("raw_label", "salvaged", "postprocess_dropped") if key in record},
     }
 
 
