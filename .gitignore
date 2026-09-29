@@ -30,3 +30,6 @@ node_modules/
 
 # 백업 파일
 *.bak
+
+# 원본 리뷰 엑셀(Tripadvisor 등)은 커밋하지 않는다
+db/*.xlsx
