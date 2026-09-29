@@ -28,6 +28,8 @@ class RecommendationItem(BaseModel):
     category: str
     scrap_ids: list[int]
     fit: float  # 0~100, 요구사항 가중치로 평균 낸 만족도
+    # 요구사항과 관련된 리뷰가 있는지. False면 fit은 리뷰 전반 만족도이고, 관련 장소들 뒤에 놓인다.
+    matched: bool
     review_count: int
     reason: str
     strengths: list[AspectScore]
@@ -42,5 +44,6 @@ class SkippedScrap(BaseModel):
 class RecommendationResponse(BaseModel):
     requirements: str
     weights: list[AspectWeight]  # 비어 있으면 요구사항에서 키워드를 찾지 못해 전체 만족도로 순위를 매긴 것
+    ignored_keywords: list[str]  # "주차는 필요 없어요"처럼 신경 쓰지 않는다고 한 키워드 (가중치에서 제외)
     items: list[RecommendationItem]
     skipped: list[SkippedScrap]

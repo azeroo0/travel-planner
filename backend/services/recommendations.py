@@ -4,7 +4,9 @@ LLM이 장소를 고르지 않는다. 요구사항 문장은 키워드 규칙으
 각 장소의 점수는 그 장소 리뷰에 달린 구조화 라벨(review_annotations)로만 계산한다.
 
   goodness(aspect) = 100 × (긍정 + 0.5 × 중립) / 언급 수, 언급이 적으면 50(중립) 쪽으로 당긴다
-  fit(장소)        = 50 + Σ w × (goodness − 50) / Σ w   (장소 카테고리에 있는 aspect만)
+  fit(장소)        = 50 + Σ w × (goodness − 50) / Σ w   (장소 리뷰에 언급된 aspect만)
+
+요구사항과 관련된 리뷰가 있는 장소(matched)를 먼저 fit 순으로, 없는 장소는 리뷰 전반 만족도로 그 뒤에 둔다.
 """
 
 import re
@@ -85,11 +87,41 @@ def label(aspect: str) -> str:
     return ASPECT_LABELS.get(aspect, aspect)
 
 
+# 키워드 뒤 같은 절에 이 표현이 있으면 "신경 쓰지 않는다"는 뜻으로 보고 가중치에서 뺀다.
+# "웨이팅 없는 곳"처럼 없기를 바라는 요구는 살려야 하므로 '없' 하나만으로는 부정으로 보지 않는다.
+NEGATION = re.compile(
+    r"필요\s?(?:가\s?)?(?:없|하지\s?않)|상관\s?없|관심\s?없|신경\s?(?:안|쓰지\s?않)|중요하지\s?않"
+    r"|안\s?\S*도\s?(?:돼|되|괜찮)|(?:없어|빼)도\s?(?:돼|되|괜찮)"
+)
+# 절 경계: 문장부호, 줄바꿈, 절을 잇는 어미("~고 ", "~는데", "~지만", "~면서")
+CLAUSE_END = re.compile(r"[.!?,\n]|고\s|는데|지만|면서")
+
+
+def _negated(text: str, end: int) -> bool:
+    boundary = CLAUSE_END.search(text, end)
+    clause = text[end:boundary.end() if boundary else len(text)]
+    return bool(NEGATION.search(clause))
+
+
+def _keyword_matches(text: str) -> list[tuple[str, dict[str, float], bool]]:
+    """(대표 키워드, 가중치 규칙, 부정 여부). 같은 키워드가 여러 번 나오면 한 번이라도 부정이 아니면 살린다."""
+    matches = []
+    for pattern, keyword, rule in KEYWORD_RULES:
+        found = list(re.finditer(pattern, text))
+        if found:
+            matches.append((keyword, rule, all(_negated(text, m.end()) for m in found)))
+    return matches
+
+
+def ignored_keywords(text: str) -> list[str]:
+    return [keyword for keyword, _, negated in _keyword_matches(text) if negated]
+
+
 def parse_requirements(text: str) -> list[AspectWeight]:
     weights: dict[str, float] = defaultdict(float)
     keywords: dict[str, list[str]] = defaultdict(list)
-    for pattern, keyword, rule in KEYWORD_RULES:
-        if re.search(pattern, text):
+    for keyword, rule, negated in _keyword_matches(text):
+        if not negated:
             for aspect, weight in rule.items():
                 weights[aspect] += weight
                 if keyword not in keywords[aspect]:
@@ -144,9 +176,11 @@ async def recommend(session: AsyncSession, *, user_id: int, request: Recommendat
             place_scraps.setdefault(place_id, []).append(scrap_id)
 
     weights = parse_requirements(request.requirements)
+    ignored = ignored_keywords(request.requirements)
     place_ids = list(place_scraps)
     if not place_ids:
-        return RecommendationResponse(requirements=request.requirements, weights=weights, items=[], skipped=skipped)
+        return RecommendationResponse(requirements=request.requirements, weights=weights, ignored_keywords=ignored,
+                                      items=[], skipped=skipped)
 
     info = await recommendation_repository.places(session, place_ids)
     reviews = await recommendation_repository.review_counts(session, place_ids)
@@ -178,11 +212,13 @@ async def recommend(session: AsyncSession, *, user_id: int, request: Recommendat
         name, category = info.get(place_id, (None, "unknown"))
         items.append(RecommendationItem(
             rank=0, place_id=place_id, place_name=name, category=category, scrap_ids=place_scraps[place_id],
-            fit=round(fit, 1), review_count=reviews.get(place_id, 0),
+            fit=round(fit, 1), matched=matched, review_count=reviews.get(place_id, 0),
             reason=_reason(strengths, cautions, matched), strengths=strengths, cautions=cautions,
         ))
 
-    items.sort(key=lambda item: (-item.fit, -item.review_count, item.place_id))
+    # 요구사항과 관련된 리뷰가 있는 장소를 먼저, 그 안에서 fit 순. 관련 리뷰가 없는 장소는 리뷰 전반 점수로 뒤에 둔다.
+    items.sort(key=lambda item: (not item.matched, -item.fit, -item.review_count, item.place_id))
     for rank, item in enumerate(items, start=1):
         item.rank = rank
-    return RecommendationResponse(requirements=request.requirements, weights=weights, items=items, skipped=skipped)
+    return RecommendationResponse(requirements=request.requirements, weights=weights, ignored_keywords=ignored,
+                                  items=items, skipped=skipped)
