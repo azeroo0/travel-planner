@@ -4,8 +4,9 @@
   "train": {
     "input_reviews": 3087,
     "output_reviews": 2578,
-    "removed_duplicate_aspects": 402,
+    "removed_duplicate_aspects": 428,
     "normalized_evidence": 4382,
+    "relabeled_hotel_condition": 85,
     "dropped_empty_reviews": 0,
     "dropped_by_place_cap": 509,
     "categories": {
@@ -18,8 +19,9 @@
   "validation": {
     "input_reviews": 371,
     "output_reviews": 371,
-    "removed_duplicate_aspects": 54,
+    "removed_duplicate_aspects": 60,
     "normalized_evidence": 503,
+    "relabeled_hotel_condition": 15,
     "dropped_empty_reviews": 0,
     "dropped_by_place_cap": 0,
     "categories": {
@@ -31,6 +33,7 @@
   },
   "test_normalized": {
     "reviews": 172,
-    "normalized_evidence": 268
+    "normalized_evidence": 268,
+    "hotel_labels_the_rule_would_change_but_did_not": 6
   }
 }
