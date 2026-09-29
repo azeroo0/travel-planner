@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -43,7 +45,10 @@ class SkippedScrap(BaseModel):
 
 class RecommendationResponse(BaseModel):
     requirements: str
+    # 요구사항을 해석한 방식. model: 파인튜닝 모델 + 동행 키워드, keywords: 모델을 쓸 수 없어 키워드 규칙만 사용
+    interpreter: Literal["model", "keywords"]
     weights: list[AspectWeight]  # 비어 있으면 요구사항에서 키워드를 찾지 못해 전체 만족도로 순위를 매긴 것
-    ignored_keywords: list[str]  # "주차는 필요 없어요"처럼 신경 쓰지 않는다고 한 키워드 (가중치에서 제외)
+    # "주차는 필요 없어요"처럼 신경 쓰지 않는다고 한 항목 (가중치에서 제외). model이면 aspect 이름, keywords면 키워드
+    ignored_keywords: list[str]
     items: list[RecommendationItem]
     skipped: list[SkippedScrap]

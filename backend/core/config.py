@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ollama_model_base: str | None = None
     ollama_model_lora: str | None = None
     ollama_timeout_seconds: float = 120.0
+    recommendation_model_timeout_seconds: float = 15.0  # 추천의 요구사항 해석이 이보다 오래 걸리면 키워드 규칙으로 대체
 
     # 평가 파이프라인 결과 (evaluation/runs/<실행>/automatic_metrics.json)
     experiments_metrics_path: str | None = None

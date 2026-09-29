@@ -1,7 +1,13 @@
 """스크랩한 장소를 사용자 요구사항에 맞춰 순위 매긴다.
 
-LLM이 장소를 고르지 않는다. 요구사항 문장은 키워드 규칙으로 aspect 가중치가 되고,
-각 장소의 점수는 그 장소 리뷰에 달린 구조화 라벨(review_annotations)로만 계산한다.
+LLM이 장소를 고르지 않는다. 요구사항 문장은 aspect 가중치로 해석하고, 각 장소의 점수는
+그 장소 리뷰에 달린 구조화 라벨(review_annotations)로만 계산한다.
+
+요구사항 해석은 두 방법을 합친다 (요구사항 30문장 비교 실험에서 F1 0.764, 부정 오류 0, 동행 정확도 100%).
+  - 중요한 aspect·신경 쓰지 않는 aspect: 파인튜닝 모델(Ollama). 스크랩한 장소의 카테고리별로 병렬 호출하고,
+    neutral로 나온 aspect는 "신경 쓰지 않음"으로 보고 뺀다.
+  - 동행 유형(부모님·아이·연인·친구·혼자): 키워드 규칙으로 찾고 관련 aspect 가중치를 더한다.
+  - 모델을 쓸 수 없으면(미설정·장애·시간 초과·JSON 오류) 키워드 규칙만으로 해석한다.
 
   goodness(aspect) = 100 × (긍정 + 0.5 × 중립) / 언급 수, 언급이 적으면 50(중립) 쪽으로 당긴다
   fit(장소)        = 50 + Σ w × (goodness − 50) / Σ w   (장소 리뷰에 언급된 aspect만)
@@ -9,11 +15,16 @@ LLM이 장소를 고르지 않는다. 요구사항 문장은 키워드 규칙으
 요구사항과 관련된 리뷰가 있는 장소(matched)를 먼저 fit 순으로, 없는 장소는 리뷰 전반 만족도로 그 뒤에 둔다.
 """
 
+import asyncio
+import json
 import re
 from collections import defaultdict
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.clients.ollama_client import OllamaClient
+from backend.core.config import get_settings
 from backend.repositories import recommendations as recommendation_repository
 from backend.schemas.recommendations import (
     AspectScore,
@@ -74,6 +85,22 @@ KEYWORD_RULES: list[tuple[str, str, dict[str, float]]] = [
     (r"날씨|비\s?오|우천|더위|추위", "날씨", {"weather_sensitivity": 2.5}),
 ]
 
+# 카테고리별 허용 aspect (common/common/schema.py의 ASPECTS와 같다). 모델 출력은 이 목록으로 거른다.
+CATEGORY_ASPECTS: dict[str, frozenset[str]] = {
+    "hotel": frozenset({"room_condition", "view_quality", "cleanliness", "noise_level", "staff_service", "room_size",
+                        "bed_comfort", "amenities", "bathroom_quality", "breakfast_quality",
+                        "parking_availability", "parking_experience"}),
+    "restaurant": frozenset({"food_quality", "atmosphere", "seating_comfort", "portion", "staff_service", "cleanliness",
+                             "freshness", "serving_speed", "waiting_time", "family_friendly", "noise_level",
+                             "parking_availability", "parking_experience"}),
+    "attraction": frozenset({"walking_burden", "activity_variety", "scenery", "rest_facilities", "photo_spots",
+                             "toilet_facilities", "stay_duration", "weather_sensitivity", "slope_stairs",
+                             "parking_availability", "parking_experience"}),
+}
+COMPANION_KEYWORDS = {"부모님", "아이", "연인", "친구", "혼자"}  # KEYWORD_RULES 중 동행 유형 규칙의 대표 키워드
+MODEL_WEIGHT = 3.0  # 모델이 중요하다고 본 aspect 하나의 가중치
+MODEL_SOURCE = "요구사항 해석 모델"
+
 SHRINK = 2  # 언급이 적은 aspect를 중립(50) 쪽으로 당기는 강도. 언급 2건이면 절반만 반영
 STRENGTH_MIN, CAUTION_MAX = 60.0, 40.0
 
@@ -132,6 +159,90 @@ def parse_requirements(text: str) -> list[AspectWeight]:
     )
 
 
+def companion_weights(text: str) -> list[AspectWeight]:
+    """키워드 규칙 중 동행 유형 규칙만 적용한 가중치."""
+    weights: dict[str, float] = defaultdict(float)
+    keywords: dict[str, list[str]] = defaultdict(list)
+    for keyword, rule, negated in _keyword_matches(text):
+        if keyword in COMPANION_KEYWORDS and not negated:
+            for aspect, weight in rule.items():
+                weights[aspect] += weight
+                keywords[aspect].append(keyword)
+    return [AspectWeight(aspect=a, label=label(a), weight=w, keywords=keywords[a]) for a, w in weights.items()]
+
+
+def _model_aspects(text: str, category: str) -> tuple[set[str], set[str]] | None:
+    """모델 출력 한 건 → (중요 aspect, 신경 쓰지 않는 aspect). JSON이 아니면 None."""
+    start, end = text.find("{"), text.rfind("}")
+    try:
+        data = json.loads(text[start:end + 1]) if 0 <= start < end else None
+    except json.JSONDecodeError:
+        data = None
+    if not isinstance(data, dict):
+        return None
+    important, ignored = set(), set()
+    for item in data.get("aspects", []) if isinstance(data.get("aspects"), list) else []:
+        if not isinstance(item, dict) or item.get("category") not in CATEGORY_ASPECTS[category]:
+            continue
+        if item.get("sentiment") == "neutral":
+            ignored.add(item["category"])
+        elif item.get("sentiment") in {"positive", "negative"}:
+            important.add(item["category"])
+    return important, ignored
+
+
+async def model_interpretation(text: str, categories: list[str], client: OllamaClient | None = None) -> tuple[set[str], set[str]] | None:
+    """스크랩 장소의 카테고리별로 파인튜닝 모델에 요구사항을 넣어 (중요, 무시) aspect를 모은다. 쓸 수 없으면 None."""
+    from backend.services.analysis import SYSTEM_PROMPT
+
+    settings = get_settings()
+    categories = [c for c in categories if c in CATEGORY_ASPECTS]
+    if not settings.ollama_model or not categories:
+        return None
+    client = client or OllamaClient()
+
+    async def ask(category: str) -> tuple[set[str], set[str]] | None:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"[카테고리]\n{category}\n\n[리뷰]\n{text}"},
+        ]
+        try:
+            return _model_aspects(await client.chat(settings.ollama_model, messages), category)
+        except httpx.HTTPError:
+            return None
+
+    try:
+        results = await asyncio.wait_for(asyncio.gather(*(ask(c) for c in categories)),
+                                         timeout=settings.recommendation_model_timeout_seconds)
+    except TimeoutError:
+        return None
+    results = [r for r in results if r is not None]
+    if not results:
+        return None
+    important = set().union(*(r[0] for r in results))
+    ignored = set().union(*(r[1] for r in results))
+    return important - ignored, ignored
+
+
+async def interpret_requirements(text: str, categories: list[str], client: OllamaClient | None = None) -> tuple[list[AspectWeight], list[str], str]:
+    """(가중치, 신경 쓰지 않는 항목, 해석 방식 "model" | "keywords")."""
+    model = await model_interpretation(text, categories, client)
+    if model is None:
+        return parse_requirements(text), ignored_keywords(text), "keywords"
+    important, ignored = model
+    weights: dict[str, AspectWeight] = {
+        a: AspectWeight(aspect=a, label=label(a), weight=MODEL_WEIGHT, keywords=[MODEL_SOURCE]) for a in important
+    }
+    for companion in companion_weights(text):
+        if companion.aspect in weights:
+            weights[companion.aspect].weight += companion.weight
+            weights[companion.aspect].keywords += companion.keywords
+        elif companion.aspect not in ignored:
+            weights[companion.aspect] = companion
+    ordered = sorted(weights.values(), key=lambda item: (-item.weight, item.aspect))
+    return ordered, sorted(label(a) for a in ignored), "model"
+
+
 def goodness(counts: dict[str, int]) -> tuple[float, int]:
     """(0~100 만족도, 언급 수)."""
     mentions = sum(counts.values())
@@ -175,14 +286,15 @@ async def recommend(session: AsyncSession, *, user_id: int, request: Recommendat
         else:
             place_scraps.setdefault(place_id, []).append(scrap_id)
 
-    weights = parse_requirements(request.requirements)
-    ignored = ignored_keywords(request.requirements)
     place_ids = list(place_scraps)
     if not place_ids:
-        return RecommendationResponse(requirements=request.requirements, weights=weights, ignored_keywords=ignored,
-                                      items=[], skipped=skipped)
+        return RecommendationResponse(requirements=request.requirements, interpreter="keywords",
+                                      weights=parse_requirements(request.requirements),
+                                      ignored_keywords=ignored_keywords(request.requirements), items=[], skipped=skipped)
 
     info = await recommendation_repository.places(session, place_ids)
+    categories = sorted({category for _, category in info.values()})
+    weights, ignored, interpreter = await interpret_requirements(request.requirements, categories)
     reviews = await recommendation_repository.review_counts(session, place_ids)
     evidence = await recommendation_repository.evidence(session, place_ids)
     counts: dict[int, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(dict))
@@ -220,5 +332,5 @@ async def recommend(session: AsyncSession, *, user_id: int, request: Recommendat
     items.sort(key=lambda item: (not item.matched, -item.fit, -item.review_count, item.place_id))
     for rank, item in enumerate(items, start=1):
         item.rank = rank
-    return RecommendationResponse(requirements=request.requirements, weights=weights, ignored_keywords=ignored,
-                                  items=items, skipped=skipped)
+    return RecommendationResponse(requirements=request.requirements, interpreter=interpreter, weights=weights,
+                                  ignored_keywords=ignored, items=items, skipped=skipped)
