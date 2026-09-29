@@ -31,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TripFit 5-model evaluation pipeline")
     parser.add_argument("--config", type=Path, required=True, help="모델 5개와 Gold 경로를 담은 JSON 설정")
     parser.add_argument("--out", type=Path, required=True, help="결과 디렉터리")
+    parser.add_argument("--gold", type=Path, help="config의 gold 대신 쓸 Gold JSONL (같은 모델을 여러 test로 평가할 때)")
     parser.add_argument("--skip-inference", action="store_true", help="기존 predictions/*.jsonl 재사용")
     parser.add_argument("--skip-judge", action="store_true", help="OpenAI Judge 호출 생략")
     parser.add_argument("--judge-limit", type=int, help="Judge를 앞부분 N개 리뷰에만 실행")
@@ -46,7 +47,7 @@ def main() -> None:
     output_dir = args.out
     prediction_dir = output_dir / "predictions"
     prediction_paths: dict[str, Path] = {}
-    gold_path = Path(config["gold"])
+    gold_path = args.gold or Path(config["gold"])
     gold_rows = read_jsonl(gold_path)
 
     inference_log = []

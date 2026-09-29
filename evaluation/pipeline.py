@@ -52,6 +52,7 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             "mode": mode,
             "adapter_path": adapter_path,
             "max_new_tokens": int(model.get("max_new_tokens", 384)),
+            "load_in_4bit": bool(model.get("load_in_4bit", False)),
         })
     gold = config.get("gold")
     if not isinstance(gold, str) or not gold.strip():
@@ -130,6 +131,7 @@ def run_model(model_config: dict[str, Any], gold_path: Path, output_path: Path) 
         output_file=temporary_path,
         adapter_path=model_config.get("adapter_path"),
         max_new_tokens=model_config["max_new_tokens"],
+        load_in_4bit=model_config["load_in_4bit"],
     )
     rows = [normalize_prediction_record(row, model_config["name"]) for row in read_jsonl(temporary_path)]
     write_jsonl(output_path, rows)
@@ -181,21 +183,29 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _supports_temperature(model: str) -> bool:
+    """GPT-5 계열과 o 시리즈 추론 모델은 temperature를 기본값(1)만 허용한다."""
+    name = model.lower()
+    return not (name.startswith("gpt-5") or re.match(r"o\d", name))
+
+
 def call_openai_judge(*, model: str, review: str, category: str, gold: dict[str, Any], candidate: dict[str, Any], api_key: str, base_url: str = "https://api.openai.com/v1/chat/completions") -> dict[str, Any]:
     import requests
 
+    payload: dict[str, Any] = {
+        "model": model,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": "Return only valid JSON."},
+            {"role": "user", "content": _judge_prompt(review, category, gold, candidate)},
+        ],
+    }
+    if _supports_temperature(model):
+        payload["temperature"] = 0
     response = requests.post(
         base_url,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "temperature": 0,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": "Return only valid JSON."},
-                {"role": "user", "content": _judge_prompt(review, category, gold, candidate)},
-            ],
-        },
+        json=payload,
         timeout=300,
     )
     response.raise_for_status()

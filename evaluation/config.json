@@ -1,14 +1,29 @@
 {
-  "gold": "../artifacts/datasets/test.jsonl",
+  "gold": "../datasets/v2/test_normalized.jsonl",
   "models": [
     {
-      "name": "qwen3_4b_qlora_busan",
-      "model_id": "Qwen/Qwen3-4B",
+      "name": "qwen3_4b_base",
+      "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+      "mode": "base",
+      "load_in_4bit": true,
+      "max_new_tokens": 384
+    },
+    {
+      "name": "qwen3_4b_qlora_v1",
+      "model_id": "Qwen/Qwen3-4B-Instruct-2507",
       "mode": "qlora",
-      "adapter_path": "/Users/sunub/workspace/travel-planner/models/qwen3_4b_qlora_busan"
+      "adapter_path": "../models/qwen3_4b_qlora_busan",
+      "max_new_tokens": 384
+    },
+    {
+      "name": "qwen3_4b_qlora_v2",
+      "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+      "mode": "qlora",
+      "adapter_path": "../artifacts/models/qwen3_4b_qlora_busan_v2",
+      "max_new_tokens": 384
     }
   ],
   "judge": {
-    "model": "gpt-5.5"
+    "model": "gpt-5-mini"
   }
 }

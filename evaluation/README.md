@@ -52,6 +52,18 @@ evaluation/runs/2026-09-29/
 
 `report.html`은 자동 평가 요약과 인간 평가 링크를 보여줍니다. `human_review.html`은 모델 쌍을 A/B로 보여주며, 정확성·완전성·Evidence 근거성·유용성·선호·메모를 입력하고 JSONL로 다운로드할 수 있습니다.
 
+같은 모델을 여러 test로 평가하려면 `--gold`로 config의 `gold`를 덮어씁니다. 결과 폴더는 test마다 나눕니다.
+
+```bash
+uv run python -m evaluation.run_pipeline \
+  --config evaluation/config.json \
+  --gold datasets/v2/test_real.jsonl \
+  --out evaluation/runs/2026-09-29-real \
+  --skip-judge
+```
+
+추론은 학습과 같은 `prompt.build_prompt`를 씁니다. `model_id`는 adapter를 학습한 Base와 정확히 같아야 합니다 (adapter의 `adapter_config.json`에 `base_model_name_or_path`가 있습니다). 8GB GPU에서는 Base 모델에 `"load_in_4bit": true`를 지정해야 올라갑니다.
+
 GPT Judge를 실행하지 않고 자동 평가와 인간 평가만 만들려면 다음처럼 실행합니다.
 
 ```bash
