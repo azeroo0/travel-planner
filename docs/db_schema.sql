@@ -92,8 +92,9 @@ CREATE TABLE reviews (
     source VARCHAR(50) NOT NULL,
     external_review_id VARCHAR(200) NOT NULL,
     source_member VARCHAR(50),
-    dataset_split VARCHAR(20) NOT NULL CHECK (dataset_split IN ('train', 'val', 'test')),
-    label_tier VARCHAR(20) NOT NULL CHECK (label_tier IN ('gold', 'silver')),
+    -- 학습 데이터셋 리뷰만 값이 있고, 서비스용 실제 리뷰는 NULL이다.
+    dataset_split VARCHAR(20) CHECK (dataset_split IN ('train', 'val', 'test')),
+    label_tier VARCHAR(20) CHECK (label_tier IN ('gold', 'silver')),
     is_synthetic BOOLEAN NOT NULL,
     review_text TEXT NOT NULL,
     raw_record JSONB NOT NULL,

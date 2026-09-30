@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from backend.api.deps import Session
 from backend.repositories import places as place_repository
-from backend.schemas.places import EvidenceReview, PlaceProfile, PlaceRead
+from backend.schemas.places import EvidenceReview, PlaceDetailRead, PlaceProfile, PlaceRead
 from backend.services import places as place_service
 
 router = APIRouter(prefix="/places", tags=["places"])
@@ -26,12 +26,12 @@ async def list_places(
     return [PlaceRead.model_validate(place) for place in places]
 
 
-@router.get("/{place_id}", response_model=PlaceRead)
-async def get_place(place_id: int, session: Session) -> PlaceRead:
-    place = await place_repository.get_place(session, place_id)
+@router.get("/{place_id}", response_model=PlaceDetailRead)
+async def get_place(place_id: int, session: Session) -> PlaceDetailRead:
+    place = await place_service.get_place_detail(session, place_id)
     if place is None:
         raise _not_found()
-    return PlaceRead.model_validate(place)
+    return place
 
 
 @router.get("/{place_id}/profile", response_model=PlaceProfile)

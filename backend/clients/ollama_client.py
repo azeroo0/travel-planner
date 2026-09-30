@@ -17,13 +17,13 @@ class OllamaClient:
             response.raise_for_status()
             return response.json()["response"]
 
-    async def chat(self, model: str, messages: list[dict[str, str]]) -> str:
+    async def chat(self, model: str, messages: list[dict[str, str]], *, format: dict | None = None) -> str:
         """temperature 0으로 한 번에 응답을 받는다."""
         settings = get_settings()
         async with httpx.AsyncClient(base_url=settings.ollama_base_url, timeout=settings.ollama_timeout_seconds) as client:
-            response = await client.post(
-                "/api/chat",
-                json={"model": model, "messages": messages, "stream": False, "options": {"temperature": 0}},
-            )
+            payload = {"model": model, "messages": messages, "stream": False, "options": {"temperature": 0}}
+            if format is not None:
+                payload["format"] = format
+            response = await client.post("/api/chat", json=payload)
             response.raise_for_status()
             return response.json()["message"]["content"]

@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.annotation import ReviewAnnotation
 from backend.models.aspect import Aspect
 from backend.models.companion import CompanionType, ReviewCompanion
+from backend.models.catalog import District, PlaceCategory, Region
 from backend.models.place import Place
+from backend.models.place_assets import PlaceImage, PlaceTag, Tag
 from backend.models.review import Review
 
 
@@ -15,6 +17,36 @@ async def list_places(session: AsyncSession, *, limit: int, offset: int) -> list
 
 async def get_place(session: AsyncSession, place_id: int) -> Place | None:
     return await session.get(Place, place_id)
+
+
+async def place_detail_info(session: AsyncSession, place_id: int) -> tuple[Place, str, str | None, str | None] | None:
+    row = await session.execute(
+        select(Place, PlaceCategory.category_code, District.district_name, Region.region_code)
+        .join(PlaceCategory, PlaceCategory.category_id == Place.category_id)
+        .outerjoin(District, District.district_id == Place.district_id)
+        .outerjoin(Region, Region.region_id == District.region_id)
+        .where(Place.place_id == place_id)
+    )
+    found = row.one_or_none()
+    return tuple(found) if found else None
+
+
+async def place_images(session: AsyncSession, place_id: int) -> list[PlaceImage]:
+    rows = await session.scalars(
+        select(PlaceImage).where(PlaceImage.place_id == place_id)
+        .order_by(PlaceImage.is_main.desc(), PlaceImage.sort_order, PlaceImage.image_id)
+    )
+    return list(rows)
+
+
+async def place_tags(session: AsyncSession, place_id: int) -> list[tuple[str | None, str]]:
+    rows = await session.execute(
+        select(Tag.category, Tag.tag_name)
+        .join(PlaceTag, PlaceTag.tag_id == Tag.tag_id)
+        .where(PlaceTag.place_id == place_id)
+        .order_by(Tag.category, Tag.tag_name)
+    )
+    return [tuple(row) for row in rows]
 
 
 async def count_reviews(session: AsyncSession, place_id: int) -> int:
