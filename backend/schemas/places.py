@@ -21,6 +21,31 @@ class PlaceRead(BaseModel):
     updated_at: datetime
 
 
+class PlaceImageRead(BaseModel):
+    image_url: str
+    is_main: bool
+    sort_order: int
+
+
+class PlaceTagRead(BaseModel):
+    category: str | None
+    tag_name: str
+
+
+class PlaceDetailRead(PlaceRead):
+    name: str | None
+    category: str
+    region: str | None
+    district: str | None
+    latitude: float | None
+    longitude: float | None
+    summary: str
+    main_image_url: str | None
+    review_count: int
+    images: list[PlaceImageRead]
+    tags: list[PlaceTagRead]
+
+
 class ProfileAspect(BaseModel):
     aspect: str
     polarity: str
@@ -45,7 +70,7 @@ class PlaceProfile(BaseModel):
 class EvidenceReview(BaseModel):
     review_id: int
     text: str
-    context: list[str]
+    context: str
     attribute: str
     sentiment: str
     evidence_start: int

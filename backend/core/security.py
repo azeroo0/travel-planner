@@ -16,10 +16,16 @@ def verify_password(password: str, password_hash: str | None) -> bool:
     return password_hash is not None and _password_hash.verify(password, password_hash)
 
 
+MIN_SECRET_LENGTH = 32
+
+
 def _secret() -> str:
     secret = get_settings().jwt_secret
     if not secret:
         raise RuntimeError("JWT_SECRET is required for authentication")
+    if len(secret) < MIN_SECRET_LENGTH or secret == "change-me":
+        # 짧거나 예시 그대로인 키는 토큰을 위조당할 수 있으므로 쓰지 않는다.
+        raise RuntimeError(f"JWT_SECRET must be at least {MIN_SECRET_LENGTH} random characters")
     return secret
 
 
