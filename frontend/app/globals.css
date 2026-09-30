@@ -33,15 +33,17 @@ a { color: inherit; text-decoration: none; }
 .appbar h1 { font-size: 17px; font-weight: 700; margin: 0; flex: 1; }
 .appbar.center h1 { text-align: center; font-size: 16px; }
 .appbar.center > :last-child { width: 22px; }
+.appbar .brand { display: flex; align-items: center; gap: 8px; flex: 1; }
+.appbar .reset { border: 0; background: none; color: var(--sub); font-size: 14px; cursor: pointer; }
+.appbar .reset:disabled { opacity: .4; cursor: default; }
 .avatar { border-radius: 50%; object-fit: cover; flex: none; }
 
 /* start */
 .start { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; padding: 32px 20px 16px; text-align: center; }
 .start img { max-width: 70%; height: auto; }
-.home-login { align-self: flex-end; color: var(--ac); font-size: 14px; font-weight: 600; }
 .start h1 { font-size: 22px; line-height: 1.4; margin: 12px 0 6px; }
 .start p { color: var(--sub); font-size: 14px; margin: 0 0 24px; }
-.examples { width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.examples { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; text-align: left; }
 .examples a { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-weight: 500; font-size: 14px; }
 .examples small { color: var(--faint); font-weight: 400; font-size: 12px; }
 
@@ -62,6 +64,8 @@ a { color: inherit; text-decoration: none; }
 .conditions span { font-size: 13px; font-weight: 500; background: var(--fill); padding: 5px 10px; border-radius: 8px; }
 
 .results { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.compare-stats { margin: 0; } /* [임시] 모델별 추천 비교 */
+.results .more { width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ac); font-size: 14px; font-weight: 600; cursor: pointer; }
 .minimap { display: block; width: 100%; }
 .item { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 10px; padding: 13px 14px; border-top: 1px solid var(--line); }
 .item:hover { background: var(--ac-t); }
