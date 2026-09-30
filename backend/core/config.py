@@ -6,6 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     database_url: str | None = None
 
+    # 브라우저에서 이 API를 부를 수 있는 프론트 주소. 쉼표로 구분 (예: http://localhost:3000,https://dev.example.com)
+    cors_origins: str = "http://localhost:3000"
+
     # 인증 (JWT)
     jwt_secret: str | None = None
     jwt_algorithm: str = "HS256"
@@ -23,6 +26,11 @@ class Settings(BaseSettings):
     experiments_metrics_path: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip().rstrip("/") for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache
