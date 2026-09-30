@@ -14,7 +14,7 @@ from typing import Any, Iterable
 
 from .metrics import evaluate_records
 
-MODES = {"base", "lora", "qlora"}
+MODES = {"base", "lora", "qlora", "ollama"}
 
 
 def _resolve_path(value: str | None, base_dir: Path) -> str | None:
@@ -45,8 +45,8 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         adapter_path = model.get("adapter_path")
         if mode in {"lora", "qlora"} and not adapter_path:
             raise ValueError(f"{name}: {mode} 모델에는 adapter_path가 필요합니다")
-        if mode == "base" and adapter_path:
-            raise ValueError(f"{name}: base 모델에는 adapter_path를 지정하지 않습니다")
+        if mode in {"base", "ollama"} and adapter_path:
+            raise ValueError(f"{name}: {mode} 모델에는 adapter_path를 지정하지 않습니다")
         names.add(name)
         normalized_models.append({
             "name": name,
@@ -55,6 +55,9 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             "adapter_path": adapter_path,
             "max_new_tokens": int(model.get("max_new_tokens", 512)),
             "load_in_4bit": bool(model.get("load_in_4bit", False)),
+            # ollama 모드 전용: model_id는 Ollama 모델 이름이고 base_url은 서버 주소, prompt는 요청 프롬프트 형식이다
+            "base_url": model.get("base_url", "http://localhost:11434"),
+            "prompt": model.get("prompt", "tripfit"),
         })
     gold = config.get("gold")
     if not isinstance(gold, str) or not gold.strip():
@@ -125,9 +128,25 @@ def normalize_prediction_record(record: dict[str, Any], model_name: str) -> dict
 
 def run_model(model_config: dict[str, Any], gold_path: Path, output_path: Path) -> dict[str, Any]:
     """Run one model using the repository inference implementation."""
+    temporary_path = output_path.with_suffix(".raw.jsonl")
+    if model_config["mode"] == "ollama":
+        from travel_planner.model_cjm.ollama_infer import predict_ollama
+
+        failed = predict_ollama(
+            model=model_config["model_id"],
+            input_file=gold_path,
+            output_file=temporary_path,
+            base_url=model_config["base_url"],
+            prompt=model_config["prompt"],
+            max_new_tokens=model_config["max_new_tokens"],
+        )
+        rows = [normalize_prediction_record(row, model_config["name"]) for row in read_jsonl(temporary_path)]
+        write_jsonl(output_path, rows)
+        temporary_path.unlink(missing_ok=True)
+        return {"model": model_config["name"], "records": len(rows), "failed_requests": failed, "prediction_path": str(output_path)}
+
     from travel_planner.model_cjm.infer import predict
 
-    temporary_path = output_path.with_suffix(".raw.jsonl")
     predict(
         model_id=model_config["model_id"],
         mode=model_config["mode"],

@@ -110,6 +110,18 @@ uv run python -m evaluation.run_pipeline \
 - Judge가 JSON이 아닌 답을 준 경우는 0점이 아니라 점수 없음으로 두어 평균에서 제외하고 `errors`로 셉니다.
 - 다른 Judge 모델로 다시 보려면 `--judge-model gpt-4.1-mini`처럼 지정합니다. 결과 파일이 모델별로 나뉩니다.
 
+## Ollama로 배포한 모델 평가
+
+`mode: ollama`를 쓰면 모델을 직접 올리지 않고 Ollama 서버(`/api/chat`, 온도 0)에 요청해서 같은 파이프라인으로 평가합니다. GGUF로 양자화한 배포 모델이 성능을 유지하는지 확인하는 용도입니다. 예시는 `config.ollama.example.json`입니다.
+
+- `model_id`: Ollama 모델 이름 (예: `sunub/qwen3-tripfit:qlora-v3`). 먼저 `ollama pull` 또는 `ollama create`로 로컬에 있어야 합니다.
+- `base_url`: Ollama 서버 주소 (기본 `http://localhost:11434`)
+- `prompt`: 요청 프롬프트 형식. 모델이 학습된 프롬프트와 같아야 합니다.
+  - `tripfit`: 이 저장소의 학습 프롬프트(시스템 + 사용자 메시지)
+  - `modelfile`: 사용자 메시지만 보내고 시스템 메시지는 모델의 Modelfile에 있는 것을 씀
+  - `sang_notebook`: 팀원(sang) 브랜치의 프롬프트. 팀원 모델(`hinoonyaso/exaone-tripfit:qlora-v2`)의 Modelfile `SYSTEM`과 시스템 메시지가 글자 그대로 같음을 확인했습니다. 사용자 메시지 형식(`[카테고리]`/`[리뷰]`)은 Modelfile에 없어서 팀원 브랜치의 추론 코드를 따랐습니다. Modelfile의 기본값(`num_ctx` 2048, `num_predict` 384)은 요청의 옵션(`num_ctx` 4096, `num_predict` `max_new_tokens`)이 덮어씁니다
+- 요청이 실패한 리뷰는 건너뛰고 `failed_requests`로 알려 줍니다. 모델 이름이 없어서 나는 404는 바로 멈춥니다.
+
 ## 후처리와 오류 분석
 
 추론 결과는 `travel_planner.model_cjm.postprocess`가 정리합니다. 잘린 JSON에서 끝까지 쓰인 aspect만 건져 오고, 스키마에 없는 값과 원문에 없는 evidence를 버리고, 주제가 분명한 aspect(주차, 사진 명소, 신선도, 대기시간 등 12종)는 evidence에 그 주제의 단어가 없으면 지어낸 것으로 보고 버리고, 같은 라벨의 중복을 없앱니다. 주제 단어 목록은 `datas/common/topic_keywords.py`에 있고 `postprocess --no-topic-check`로 이 규칙만 끌 수 있습니다. 정리 전 label은 `raw_label`에 남으므로 `automatic_metrics.json`의 `raw_schema_valid_rate`가 모델이 실제로 스키마를 지킨 비율이고, `schema_valid_rate`는 후처리 뒤 값이라 높게 나옵니다. `json_success_rate`는 복구 전 기준이라 복구한 레코드 수는 `salvaged_records`로 따로 봅니다.

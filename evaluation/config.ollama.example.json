@@ -1,0 +1,24 @@
+{
+  "gold": "../datasets/v2/test_real_gold.jsonl",
+  "models": [
+    {
+      "name": "qwen3_tripfit_ollama",
+      "model_id": "sunub/qwen3-tripfit:qlora-v3",
+      "mode": "ollama",
+      "base_url": "http://localhost:11434",
+      "prompt": "tripfit",
+      "max_new_tokens": 512
+    },
+    {
+      "name": "exaone_tripfit_ollama",
+      "model_id": "hinoonyaso/exaone-tripfit:qlora-v2",
+      "mode": "ollama",
+      "base_url": "http://localhost:11434",
+      "prompt": "sang_notebook",
+      "max_new_tokens": 512
+    }
+  ],
+  "judge": {
+    "model": "gpt-4.1-mini"
+  }
+}
