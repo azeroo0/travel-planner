@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # 평가 파이프라인 결과 (evaluation/runs/<실행>/automatic_metrics.json)
     experiments_metrics_path: str | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 
 
     @property
