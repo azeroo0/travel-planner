@@ -112,7 +112,7 @@ uv run python -m evaluation.run_pipeline \
 
 ## 후처리와 오류 분석
 
-추론 결과는 `travel_planner.model_cjm.postprocess`가 정리합니다. 잘린 JSON에서 끝까지 쓰인 aspect만 건져 오고, 스키마에 없는 값과 원문에 없는 evidence를 버리고, 같은 라벨의 중복을 없앱니다. 정리 전 label은 `raw_label`에 남으므로 `automatic_metrics.json`의 `raw_schema_valid_rate`가 모델이 실제로 스키마를 지킨 비율이고, `schema_valid_rate`는 후처리 뒤 값이라 높게 나옵니다. `json_success_rate`는 복구 전 기준이라 복구한 레코드 수는 `salvaged_records`로 따로 봅니다.
+추론 결과는 `travel_planner.model_cjm.postprocess`가 정리합니다. 잘린 JSON에서 끝까지 쓰인 aspect만 건져 오고, 스키마에 없는 값과 원문에 없는 evidence를 버리고, 주제가 분명한 aspect(주차, 사진 명소, 신선도, 대기시간 등 12종)는 evidence에 그 주제의 단어가 없으면 지어낸 것으로 보고 버리고, 같은 라벨의 중복을 없앱니다. 주제 단어 목록은 `datas/common/topic_keywords.py`에 있고 `postprocess --no-topic-check`로 이 규칙만 끌 수 있습니다. 정리 전 label은 `raw_label`에 남으므로 `automatic_metrics.json`의 `raw_schema_valid_rate`가 모델이 실제로 스키마를 지킨 비율이고, `schema_valid_rate`는 후처리 뒤 값이라 높게 나옵니다. `json_success_rate`는 복구 전 기준이라 복구한 레코드 수는 `salvaged_records`로 따로 봅니다.
 
 이미 만든 예측 파일도 GPU 없이 다시 정리할 수 있습니다.
 
