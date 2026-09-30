@@ -169,7 +169,7 @@ Sep 29, 2026 · @Dorothy
 | `category` | `hotel` \| `restaurant` \| `attraction` | 아니오 |
 | `limit` | int, 기본 10 | 아니오 |
 
-응답 `200`: `fit` 내림차순 `FitResult` 목록.
+응답 `200`: `fit` 내림차순 `FitResult` 목록. `fit`이 40 미만인 장소는 포함하지 않는다.
 
 ```json
 [

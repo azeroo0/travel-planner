@@ -143,6 +143,8 @@ PLACE_REASON_PROMPT = """지금 제공된 장소 하나의 추천 이유(reason)
 PLACE_BATCH_SIZE = 12
 REVIEWS_PER_PLACE = 3
 REVIEW_MAX_CHARS = 400
+# 모델이 매긴 fit이 이 값보다 낮은 장소는 추천하지 않는다.
+MIN_PLACE_FIT = 40
 
 
 class _ModelPlaceItem(BaseModel):
@@ -196,6 +198,7 @@ def _parse_place_recommendations(
         ))
     if data.recommendations and not results:
         raise PlaceModelOutputInvalid("Recommendation model returned no verifiable places")
+    results = [item for item in results if item.fit >= MIN_PLACE_FIT]
     return sorted(results, key=lambda item: (-item.fit, item.place.place_id))[:limit]
 
 

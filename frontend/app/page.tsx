@@ -19,7 +19,7 @@ export default function Home() {
         <div className="examples">
           {examples.map((e) => <Link key={e.q} href={`/chat?q=${encodeURIComponent(e.q)}`}>{e.q}<small>{e.sub}</small></Link>)}
         </div>
-        <p><Link href="/scraps">DB 장소 목록</Link> · <Link href="/analyzer">리뷰 한 건 분석하기</Link></p>
+        <p><Link href="/scraps">장소 스크랩</Link></p>
       </div>
       <ChatInput />
     </>
