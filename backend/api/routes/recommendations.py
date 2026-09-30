@@ -46,10 +46,6 @@ async def recommend_all(
     )
     try:
         return await recommendation_service.recommend_places(session, query)
-    except recommendation_service.PlaceModelUnavailable as error:
-        raise HTTPException(status_code=503, detail=str(error)) from None
-    except recommendation_service.PlaceModelOutputInvalid as error:
-        raise HTTPException(status_code=502, detail=str(error)) from None
     except SQLAlchemyError as error:
         raise HTTPException(status_code=503, detail="Recommendation database is unavailable") from error
 

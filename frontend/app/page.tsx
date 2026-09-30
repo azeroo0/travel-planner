@@ -12,14 +12,12 @@ export default function Home() {
   return (
     <>
       <div className="start">
-        <Link href="/login" className="home-login">로그인</Link>
         <Image src="/logo.png" alt="어디갈건호? 로고" width={250} height={213} priority />
         <h1>어디 갈지 고민될 땐,<br />리뷰한테 물어봐요</h1>
         <p>부산 리뷰를 읽고 조건에 맞는 곳을 찾아드려요</p>
         <div className="examples">
           {examples.map((e) => <Link key={e.q} href={`/chat?q=${encodeURIComponent(e.q)}`}>{e.q}<small>{e.sub}</small></Link>)}
         </div>
-        <p><Link href="/scraps">장소 스크랩</Link></p>
       </div>
       <ChatInput />
     </>

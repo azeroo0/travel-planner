@@ -77,182 +77,77 @@ class RepositoryTests(unittest.IsolatedAsyncioTestCase):
 class ServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.place_a = repository.PlaceCandidate(31, "뮤지엄 원", "attraction", "haeundae")
-        self.place_b = repository.PlaceCandidate(32, "요트클럽", "attraction", "haeundae")
+        self.place_b = repository.PlaceCandidate(32, "고릴라브루잉", "restaurant", "gwangan")
+        self.place_c = repository.PlaceCandidate(33, "요트클럽", "attraction", "haeundae")
+        # a: 걷기·계단 모두 편함, b: 아이 동반 편함(부모님 관련 aspect 없음), c: 걷기 힘듦
+        self.counts = [
+            (31, "walking_burden", "positive", 8), (31, "slope_stairs", "positive", 6),
+            (32, "family_friendly", "positive", 8), (32, "food_quality", "positive", 5),
+            (33, "walking_burden", "negative", 8),
+        ]
         self.text_a = "미술관의 전시가 좋았습니다. " + "관람하기 편했습니다. " * 50
-        self.text_b = "사진에 보듯 데크가 수십군데 뚫려있어 아주 위험합니다."
 
-    def model_output(self, *items):
-        return json.dumps({"recommendations": list(items)}, ensure_ascii=False)
-
-    async def test_verified_review_id_and_full_evidence_only_reach_second_call(self):
-        first = self.model_output({"place_id": 31, "fit": 78, "review_ids": [101]})
-        client = SimpleNamespace(chat=AsyncMock(side_effect=[first, '{"reason":"전시가 좋다는 리뷰가 있어요."}']))
+    async def recommend(self, query, *, model="test-model", client=None, reviews=None):
+        client = client or SimpleNamespace(chat=AsyncMock(return_value='{"reason":"리뷰 근거 이유"}'))
         with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a, self.place_b], []])) as candidates,
-            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value={
-                31: {101: self.text_a, 102: "다른 미술관 리뷰"}, 32: {201: self.text_b},
+            patch.object(repository, "recommendation_candidates",
+                         new=AsyncMock(side_effect=[[self.place_a, self.place_b, self.place_c], []])) as candidates,
+            patch.object(repository, "sentiment_counts", new=AsyncMock(return_value=self.counts)),
+            patch.object(repository, "review_counts", new=AsyncMock(return_value={31: 10, 32: 10, 33: 10})),
+            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value=reviews or {
+                31: {101: self.text_a}, 32: {201: "아이와 점심 먹기 좋았어요"},
             })),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model="test-model")),
+            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model=model)),
         ):
-            results = await service.recommend_places(
-                object(), PlaceRecommendationQuery(category="attraction", limit=1), client,
-            )
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0].place.place_id, 31)
-        self.assertEqual(results[0].reason, "전시가 좋다는 리뷰가 있어요.")
-        self.assertEqual(results[0].strengths, [])
-        self.assertEqual(results[0].cautions, [])
+            results = await service.recommend_places(object(), query, client)
+        return results, candidates, client
+
+    def test_condition_weights_reuse_keyword_rules_once(self):
+        self.assertEqual(service.condition_weights(PlaceRecommendationQuery(walk="low", avoids=["stairs"])),
+                         {"walking_burden": 4, "slope_stairs": 4})
+        self.assertEqual(service.condition_weights(PlaceRecommendationQuery(priorities=["quiet"], avoids=["noise"])),
+                         {"noise_level": 3.5})
+        self.assertEqual(service.condition_weights(PlaceRecommendationQuery(priorities=["culture"], walk="ok")), {})
+
+    async def test_parents_and_kids_rank_differently(self):
+        parents, candidates, _ = await self.recommend(PlaceRecommendationQuery(companion="parents", category="attraction"))
+        kids, _, _ = await self.recommend(PlaceRecommendationQuery(companion="kids"))
         self.assertEqual(candidates.await_args_list[0].kwargs["category"], "attraction")
-        calls = client.chat.await_args_list
-        self.assertEqual(len(calls), 2)
-        first_payload = json.loads(calls[0].args[1][1]["content"])
-        self.assertEqual([place["place_id"] for place in first_payload["places"]], [31, 32])
-        self.assertEqual(first_payload["places"][0]["reviews"][0],
-                         {"review_id": 101, "text": self.text_a[:400]})
-        self.assertNotIn(self.text_a, calls[0].args[1][1]["content"])
-        self.assertIn("recommendations", calls[0].kwargs["format"]["properties"])
-        second_payload = json.loads(calls[1].args[1][1]["content"])
-        self.assertEqual(second_payload["place"]["place_id"], 31)
-        self.assertEqual(second_payload["reviews"], [{"review_id": 101, "review_text": self.text_a}])
-        self.assertNotIn(self.text_b, calls[1].args[1][1]["content"])
-        self.assertNotIn("places", second_payload)
-        self.assertIn("reason", calls[1].kwargs["format"]["properties"])
-        selected = service._parse_place_recommendations(first, {31: self.place_a},
-                                                         {31: {101: self.text_a}}, 1)
-        self.assertEqual(selected[0].reviews[101], self.text_a)
+        # 부모님: b는 관련 aspect가 없어 제외, c는 걷기 부담이 커서 40 미만으로 제외
+        self.assertEqual([(r.place.place_id, r.fit) for r in parents], [(31, 88.8)])
+        self.assertEqual([(r.place.place_id, r.fit) for r in kids], [(32, 90.0), (31, 88.8)])
 
-    async def test_other_places_review_id_is_rejected(self):
-        output = self.model_output({"place_id": 31, "fit": 78, "review_ids": [201]})
-        with self.assertRaises(service.PlaceModelOutputInvalid):
-            service._parse_place_recommendations(output, {31: self.place_a, 32: self.place_b},
-                                                  {31: {101: self.text_a}, 32: {201: self.text_b}}, 10)
+    async def test_no_conditions_uses_overall_satisfaction_and_limit(self):
+        results, _, _ = await self.recommend(PlaceRecommendationQuery(limit=1))
+        self.assertEqual([r.place.place_id for r in results], [31])
 
-    async def test_unknown_review_id_and_place_id_are_rejected(self):
-        for item in (
-            {"place_id": 31, "fit": 78, "review_ids": [999999999]},
-            {"place_id": 999, "fit": 78, "review_ids": [101]},
+    async def test_model_only_writes_reason_for_selected_place(self):
+        results, _, client = await self.recommend(PlaceRecommendationQuery(companion="parents"))
+        self.assertEqual(results[0].reason, "리뷰 근거 이유")
+        self.assertEqual(results[0].strengths, [])
+        call = client.chat.await_args_list[0]
+        payload = json.loads(call.args[1][1]["content"])
+        self.assertEqual(client.chat.await_count, 1)
+        self.assertEqual(payload["place"]["place_id"], 31)
+        self.assertEqual(payload["reviews"], [{"review_id": 101, "review_text": self.text_a}])
+        self.assertIn("reason", call.kwargs["format"]["properties"])
+
+    async def test_reason_falls_back_to_labels_without_model(self):
+        for kwargs in (
+            {"model": None},
+            {"client": SimpleNamespace(chat=AsyncMock(return_value="not json"))},
+            {"client": SimpleNamespace(chat=AsyncMock(side_effect=httpx.ConnectError("offline")))},
         ):
-            with self.subTest(item=item), self.assertRaises(service.PlaceModelOutputInvalid):
-                service._parse_place_recommendations(self.model_output(item), {31: self.place_a},
-                                                      {31: {101: self.text_a}}, 10)
+            with self.subTest(kwargs=kwargs):
+                results, _, _ = await self.recommend(PlaceRecommendationQuery(companion="parents"), **kwargs)
+                self.assertEqual([r.place.place_id for r in results], [31])
+                self.assertEqual(results[0].reason, "요구사항과 관련해 걷기 부담, 경사·계단 평가가 좋아요.")
 
-    async def test_invalid_selection_does_not_block_other_valid_selection(self):
-        output = self.model_output(
-            {"place_id": 31, "fit": 80, "review_ids": [201]},
-            {"place_id": 32, "fit": 70, "review_ids": [201]},
-        )
-        selections = service._parse_place_recommendations(
-            output, {31: self.place_a, 32: self.place_b},
-            {31: {101: self.text_a}, 32: {201: self.text_b}}, 10,
-        )
-        self.assertEqual([item.place.place_id for item in selections], [32])
-
-    async def test_batch_limit_uses_highest_fit_not_model_order(self):
-        output = self.model_output(
-            {"place_id": 31, "fit": 40, "review_ids": [101]},
-            {"place_id": 32, "fit": 90, "review_ids": [201]},
-        )
-        selections = service._parse_place_recommendations(
-            output, {31: self.place_a, 32: self.place_b},
-            {31: {101: self.text_a}, 32: {201: self.text_b}}, 1,
-        )
-        self.assertEqual([item.place.place_id for item in selections], [32])
-
-    async def test_no_reviews_returns_empty_without_model(self):
-        client = SimpleNamespace(chat=AsyncMock())
-        with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a], []])),
-            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value={})),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model=None)),
-        ):
-            self.assertEqual(await service.recommend_places(object(), PlaceRecommendationQuery(), client), [])
+    async def test_all_below_threshold_returns_empty(self):
+        self.counts = [(31, "walking_burden", "negative", 8)]
+        results, _, client = await self.recommend(PlaceRecommendationQuery(companion="parents"))
+        self.assertEqual(results, [])
         client.chat.assert_not_awaited()
-
-    async def test_invalid_first_model_output_and_fit(self):
-        for output in (
-            "not json",
-            self.model_output({"place_id": 31, "fit": 101, "review_ids": [101]}),
-            self.model_output({"place_id": 31, "fit": "bad", "review_ids": [101]}),
-            self.model_output({"place_id": 31, "fit": "80", "review_ids": [101]}),
-        ):
-            with self.subTest(output=output):
-                with self.assertRaises(service.PlaceModelOutputInvalid):
-                    service._parse_place_recommendations(output, {31: self.place_a},
-                                                          {31: {101: self.text_a}}, 10)
-
-    async def test_model_connection_failure(self):
-        client = SimpleNamespace(chat=AsyncMock(side_effect=httpx.ConnectError("offline")))
-        with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a], []])),
-            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value={31: {101: self.text_a}})),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model="test-model")),
-        ):
-            with self.assertRaises(service.PlaceModelUnavailable):
-                await service.recommend_places(object(), PlaceRecommendationQuery(), client)
-
-    async def test_global_limit_across_batches(self):
-        client = SimpleNamespace(chat=AsyncMock(side_effect=[
-            self.model_output({"place_id": 31, "fit": 60, "review_ids": [101]}),
-            self.model_output({"place_id": 32, "fit": 90, "review_ids": [201]}),
-            '{"reason":"요트클럽 리뷰를 근거로 합니다."}',
-        ]))
-        with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a], [self.place_b], []])),
-            patch.object(repository, "candidate_reviews", new=AsyncMock(side_effect=[
-                {31: {101: self.text_a}}, {32: {201: self.text_b}},
-            ])),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model="test-model")),
-        ):
-            results = await service.recommend_places(object(), PlaceRecommendationQuery(limit=1), client)
-        self.assertEqual([item.place.place_id for item in results], [32])
-        self.assertEqual(client.chat.await_count, 3)
-        second_payload = json.loads(client.chat.await_args_list[2].args[1][1]["content"])
-        self.assertEqual(second_payload["place"]["place_id"], 32)
-
-    async def test_failed_second_reason_skips_one_and_keeps_other(self):
-        first = self.model_output(
-            {"place_id": 31, "fit": 90, "review_ids": [101]},
-            {"place_id": 32, "fit": 80, "review_ids": [201]},
-        )
-        client = SimpleNamespace(chat=AsyncMock(side_effect=[first, "not json", '{"reason":"방문 후기입니다."}']))
-        with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a, self.place_b], []])),
-            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value={
-                31: {101: self.text_a}, 32: {201: self.text_b},
-            })),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model="test-model")),
-        ):
-            results = await service.recommend_places(object(), PlaceRecommendationQuery(limit=2), client)
-        self.assertEqual([item.place.place_id for item in results], [32])
-
-    async def test_second_model_http_error_skips_failed_recommendation(self):
-        first = self.model_output(
-            {"place_id": 31, "fit": 90, "review_ids": [101]},
-            {"place_id": 32, "fit": 80, "review_ids": [201]},
-        )
-        client = SimpleNamespace(chat=AsyncMock(side_effect=[
-            first, httpx.ConnectError("offline"), '{"reason":"요트클럽 리뷰를 근거로 합니다."}',
-        ]))
-        with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a, self.place_b], []])),
-            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value={
-                31: {101: self.text_a}, 32: {201: self.text_b},
-            })),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model="test-model")),
-        ):
-            results = await service.recommend_places(object(), PlaceRecommendationQuery(limit=2), client)
-        self.assertEqual([item.place.place_id for item in results], [32])
-
-    async def test_all_second_reasons_fail_returns_502_error(self):
-        first = self.model_output({"place_id": 31, "fit": 90, "review_ids": [101]})
-        client = SimpleNamespace(chat=AsyncMock(side_effect=[first, '{"reason":"   "}']))
-        with (
-            patch.object(repository, "recommendation_candidates", new=AsyncMock(side_effect=[[self.place_a], []])),
-            patch.object(repository, "candidate_reviews", new=AsyncMock(return_value={31: {101: self.text_a}})),
-            patch.object(service, "get_settings", return_value=SimpleNamespace(ollama_model="test-model")),
-        ):
-            with self.assertRaises(service.PlaceModelOutputInvalid):
-                await service.recommend_places(object(), PlaceRecommendationQuery(limit=1), client)
 
 
 class RouteTests(unittest.IsolatedAsyncioTestCase):
@@ -297,11 +192,9 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
             "fit": 78.0, "reason": "바다가 보인다는 리뷰가 있어요.", "strengths": [], "cautions": [],
         }])
 
-    async def test_database_and_model_errors_are_http_errors(self):
+    async def test_database_error_is_http_error(self):
         for error, status in (
             (SQLAlchemyError("offline"), 503),
-            (service.PlaceModelUnavailable("offline"), 503),
-            (service.PlaceModelOutputInvalid("invalid"), 502),
         ):
             with self.subTest(error=error):
                 with patch.object(service, "recommend_places", new=AsyncMock(side_effect=error)):

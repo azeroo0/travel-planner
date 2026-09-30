@@ -9,11 +9,12 @@ import { getRecommendations } from '@/lib/api';
 import { parseConditions } from '@/lib/conditions';
 import type { FitResult } from '@/lib/api-types';
 
-type Message = { role: 'user' | 'bot'; text: string; results?: FitResult[]; labels?: string[] };
+type Message = { role: 'user' | 'bot'; text: string; results?: FitResult[]; labels?: string[]; shown?: number };
 const GREETING: Message = { role: 'bot', text: '함께 갈 사람, 걷기 정도, 원하는 점과 피할 점을 알려주세요.' };
 const categoryName = { hotel: '숙소', restaurant: '식당', attraction: '관광지' };
 // 장소 상세로 갔다가 뒤로 와도 대화가 남도록 탭 단위(sessionStorage)로 보관한다.
 const STORAGE_KEY = 'chat-messages';
+const PAGE_SIZE = 5; // 추천 결과를 처음에 보여 주는 개수이자 '더보기' 한 번에 늘어나는 개수
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([GREETING]);
@@ -88,7 +89,7 @@ export default function Chat() {
           <div key={i} className="bot-group">
             <div className="bot"><Image src="/avatar.png" alt="" width={34} height={34} className="avatar" /><p>{m.text}</p></div>
             {m.labels && <div className="conditions">{m.labels.map((label) => <span key={label}>{label}</span>)}</div>}
-            {m.results && <div className="results">{m.results.map((result, rank) => (
+            {m.results && <div className="results">{m.results.slice(0, m.shown ?? PAGE_SIZE).map((result, rank) => (
               <Link key={result.place.place_id} href={`/place/${result.place.place_id}`} className="item">
                 <span className="rank">{rank + 1}</span>
                 <span><b>{result.place.name}</b><span className="meta">{categoryName[result.place.category]} · {result.place.region}</span></span>
@@ -96,7 +97,13 @@ export default function Chat() {
                 <span className="why">{result.reason}</span>
                 {!!result.cautions.length && <span className="why">주의: {result.cautions.map((item) => item.aspect).join(', ')}</span>}
               </Link>
-            ))}</div>}
+            ))}
+            {m.results.length > (m.shown ?? PAGE_SIZE) && (
+              <button type="button" className="more"
+                onClick={() => setMessages((all) => all.map((x, j) => j === i ? { ...x, shown: (x.shown ?? PAGE_SIZE) + PAGE_SIZE } : x))}>
+                더보기
+              </button>
+            )}</div>}
           </div>
         ))}
         {loading && <div className="bot"><p>장소를 찾고 있어요…</p></div>}
