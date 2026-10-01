@@ -12,23 +12,29 @@ wheels/
 
 # Secrets
 .env
-.DS_Store
 
 # 팀원별 원본(in)과 생성 결과(out). 커밋하지 않는다
 datas/*/in/
 datas/*/out/
-datas/datasets/
-datas/cjm/out.zip
+
+# 모델 학습 산출물(adapter·checkpoint·GGUF·병합 가중치). 수 GB라 커밋하지 않는다
+artifacts/
+
+# 실험 로그와 평가 실행 결과
+wandb/
+evaluation/runs/
+
+# 프론트엔드 빌드 결과와 의존성
+.next/
+node_modules/
+
+# 백업 파일
+*.bak
+
+# 원본 리뷰 엑셀(Tripadvisor 등)은 커밋하지 않는다
+db/*.xlsx
+.DS_Store
 
 # 학습·평가 실행 산출물과 로컬 압축 백업
 artifacts/
 evaluation/runs/
-datas/common.zip
-src/travel_planner.zip
-
-# Hugging Face 배포 준비 폴더의 모델 가중치 (크기가 커서 커밋하지 않는다)
-deploy/**/*.safetensors
-
-# Ollama 배포 준비 산출물 (병합 모델, GGUF)
-deploy/ollama/merged/
-deploy/**/*.gguf

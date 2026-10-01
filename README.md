@@ -103,19 +103,18 @@ Context / Aspect / Attribute / Sentiment / Evidence
 
 | 🏨 호텔 `hotel` | 🍽️ 식당 `restaurant` | 🏖️ 관광지 `attraction` |
 | --- | --- | --- |
-| `cleanliness` · 청결 | `food_quality` · 음식 맛/품질 | `scenery` · 경관 종류 |
+| `cleanliness` · 청결 | `food_quality` · 음식 맛/품질 | `scenery` · 경관/풍경 |
 | `noise_level` · 소음 | `freshness` · 신선도 | `photo_spots` · 사진 촬영 만족도 |
 | `bed_comfort` · 침대/침구 편안함 | `portion` · 음식 양 | `walking_burden` · 걷기 부담 |
 | `room_size` · 객실 크기 | `waiting_time` · 웨이팅 시간 | `slope_stairs` · 언덕/계단 부담 |
 | `bathroom_quality` · 욕실/수압 | `serving_speed` · 음식 제공 속도 | `activity_variety` · 볼거리/즐길거리 |
-| `room_condition` · 객실/시설 상태 | `staff_service` · 직원 친절/응대 | `stay_duration` · 체류 시간 |
+| `room_condition` · 객실/시설 상태 | `staff_service` · 직원 친절/응대 | `stay_duration` · 체류할 만한 정도 |
 | `view_quality` · 객실 전망 | `cleanliness` · 매장/식기 청결 | `rest_facilities` · 휴식시설 |
 | `staff_service` · 직원 친절/응대 | `atmosphere` · 매장 분위기 | `toilet_facilities` · 화장실 편의 |
-| `breakfast_quality` · 조식 품질 | `noise_level` · 매장 소음 | `weather_sensitivity` · 날씨 영향 (실내/실외) |
-| `amenities` · 편의/부대시설 유무 | `seating_comfort` · 좌석/공간 편의 | `parking_availability` · 주차 가능 여부 |
-| `parking_availability` · 주차 가능 여부 | `family_friendly` · 가족 동반 적합도 | `parking_experience` · 실제 주차 경험 |
-| `parking_experience` · 실제 주차 경험 | `parking_availability` · 주차 가능 여부 | |
-| | `parking_experience` · 실제 주차 경험 | |
+| `breakfast_quality` · 조식 품질 | `noise_level` · 매장 소음 | `weather_sensitivity` · 날씨 영향 |
+| `amenities` · 편의/부대시설 | `seating_comfort` · 좌석/공간 편의 | `parking_experience` · 실제 주차 경험 |
+| `parking_experience` · 실제 주차 경험 | `family_friendly` · 가족 동반 적합도 | |
+| `location_access` · 역/교통 접근성 | `parking_experience` · 실제 주차 경험 | |
 
 > **참고:** aspect별 허용값(attribute, sentiment, traveler_context)은 [`datas/common/schema.py`](datas/common/schema.py), 라벨링 규칙은 [`docs/annotation-guideline.md`](docs/annotation-guideline.md)가 기준입니다. 둘 다 파일럿 어노테이션 후 확정하는 초안입니다.
 
@@ -180,9 +179,9 @@ GOLD DATA
 {
   "traveler_context": ["parents"],
   "aspects": [
-    {"category": "quietness", "attribute": "quiet", "sentiment": "positive", "evidence": "호텔이 정말 조용하고"},
+    {"category": "noise_level", "attribute": "quiet", "sentiment": "positive", "evidence": "호텔이 정말 조용하고"},
     {"category": "cleanliness", "attribute": "clean", "sentiment": "positive", "evidence": "깨끗했어요"},
-    {"category": "accessibility", "attribute": "poor", "sentiment": "negative", "evidence": "역에서는 조금 멀었어요"}
+    {"category": "location_access", "attribute": "poor", "sentiment": "negative", "evidence": "역에서는 조금 멀었어요"}
   ]
 }
 ```
@@ -384,7 +383,7 @@ Validator
 > **LLM:** “바다 풍경, 맛집, 문화 관광 중 어떤 걸 가장 중요하게 생각하세요?”
 > **사용자:** “바다랑 맛집.”
 >
-> **시스템:** 관광지 리뷰의 `walking_burden`, `scenery`와 식당의 `taste`, `waiting_time` 등을 이용해 후보를 좁힌 뒤 일정 생성.
+> **시스템:** 관광지 리뷰의 `walking_burden`, `scenery`와 식당의 `food_quality`, `waiting_time` 등을 이용해 후보를 좁힌 뒤 일정 생성.
 
 ### 8-4. 프로젝트 발전 단계
 
