@@ -1,0 +1,6 @@
+transformers>=5.17.0
+peft>=0.21.0
+torch>=2.14.0
+accelerate>=1.15.0
+# 4bit로 올릴 때만 필요 (CUDA GPU)
+bitsandbytes>=0.50.2

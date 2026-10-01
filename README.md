@@ -116,7 +116,7 @@ Context / Aspect / Attribute / Sentiment / Evidence
 | `parking_experience` · 실제 주차 경험 | `family_friendly` · 가족 동반 적합도 | |
 | `location_access` · 역/교통 접근성 | `parking_experience` · 실제 주차 경험 | |
 
-> **참고:** 이 목록은 시작안입니다. 실제 리뷰 Pilot Annotation 후 **반복적으로 등장하고 사람이 일관되게 판단 가능한 Aspect만** 확정합니다.
+> **참고:** aspect별 허용값(attribute, sentiment, traveler_context)은 [`datas/common/schema.py`](datas/common/schema.py), 라벨링 규칙은 [`docs/annotation-guideline.md`](docs/annotation-guideline.md)가 기준입니다. 둘 다 파일럿 어노테이션 후 확정하는 초안입니다.
 
 ---
 

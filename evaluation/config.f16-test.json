@@ -1,0 +1,16 @@
+{
+  "gold": "../datasets/v2/test_real_gold.jsonl",
+  "models": [
+    {
+      "name": "qwen3_f16",
+      "model_id": "tripfit-qwen3-f16-test",
+      "mode": "ollama",
+      "base_url": "http://localhost:11434",
+      "prompt": "tripfit",
+      "max_new_tokens": 512
+    }
+  ],
+  "judge": {
+    "model": "gpt-4.1-mini"
+  }
+}

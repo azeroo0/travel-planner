@@ -1,0 +1,43 @@
+{
+  "gold": "../artifacts/datasets/test.jsonl",
+  "models": [
+    {
+      "name": "qwen_lora",
+      "model_id": "Qwen/Qwen2.5-7B-Instruct",
+      "mode": "lora",
+      "adapter_path": "../outputs/qwen_lora",
+      "max_new_tokens": 384
+    },
+    {
+      "name": "gemma_qlora",
+      "model_id": "google/gemma-3-4b-it",
+      "mode": "qlora",
+      "adapter_path": "../outputs/gemma_qlora",
+      "max_new_tokens": 384
+    },
+    {
+      "name": "exaone_lora",
+      "model_id": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct",
+      "mode": "lora",
+      "adapter_path": "../outputs/exaone_lora",
+      "max_new_tokens": 384
+    },
+    {
+      "name": "member4_model",
+      "model_id": "replace-with-fourth-model-id",
+      "mode": "lora",
+      "adapter_path": "../outputs/member4",
+      "max_new_tokens": 384
+    },
+    {
+      "name": "member5_model",
+      "model_id": "replace-with-fifth-model-id",
+      "mode": "base",
+      "adapter_path": null,
+      "max_new_tokens": 384
+    }
+  ],
+  "judge": {
+    "model": "gpt-6-astra"
+  }
+}

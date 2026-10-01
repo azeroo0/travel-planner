@@ -1,0 +1,39 @@
+{
+  "max_per_place": 15,
+  "seed": 42,
+  "train": {
+    "input_reviews": 3087,
+    "output_reviews": 2578,
+    "removed_duplicate_aspects": 428,
+    "normalized_evidence": 4382,
+    "relabeled_hotel_condition": 85,
+    "dropped_empty_reviews": 0,
+    "dropped_by_place_cap": 509,
+    "categories": {
+      "hotel": 567,
+      "restaurant": 1104,
+      "attraction": 907
+    },
+    "max_reviews_per_place": 15
+  },
+  "validation": {
+    "input_reviews": 371,
+    "output_reviews": 371,
+    "removed_duplicate_aspects": 60,
+    "normalized_evidence": 503,
+    "relabeled_hotel_condition": 15,
+    "dropped_empty_reviews": 0,
+    "dropped_by_place_cap": 0,
+    "categories": {
+      "hotel": 80,
+      "restaurant": 137,
+      "attraction": 154
+    },
+    "max_reviews_per_place": 28
+  },
+  "test_normalized": {
+    "reviews": 172,
+    "normalized_evidence": 268,
+    "hotel_labels_the_rule_would_change_but_did_not": 6
+  }
+}

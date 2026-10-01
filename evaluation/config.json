@@ -1,0 +1,22 @@
+{
+  "gold": "../datasets/v2/test_real_gold.jsonl",
+  "models": [
+    {
+      "name": "qwen3_4b_qlora_v2",
+      "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+      "mode": "qlora",
+      "adapter_path": "../models/qwen3_4b_qlora_busan_v2",
+      "max_new_tokens": 512
+    },
+    {
+      "name": "qwen3_4b_qlora_v3",
+      "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+      "mode": "qlora",
+      "adapter_path": "../models/qwen3_4b_qlora_busan_v3",
+      "max_new_tokens": 512
+    }
+  ],
+  "judge": {
+    "model": "gpt-5-mini"
+  }
+}

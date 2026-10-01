@@ -33,3 +33,8 @@ node_modules/
 
 # 원본 리뷰 엑셀(Tripadvisor 등)은 커밋하지 않는다
 db/*.xlsx
+.DS_Store
+
+# 학습·평가 실행 산출물과 로컬 압축 백업
+artifacts/
+evaluation/runs/
