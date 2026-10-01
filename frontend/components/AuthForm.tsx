@@ -69,7 +69,7 @@ export default function AuthForm({ onSuccess, onGuest }: Props) {
           />
           {isSignup && <small id={`${id}-hint`}>8자 이상 입력해 주세요</small>}
         </div>
-        <p className="auth-error" role="alert">{error}</p>
+        {error && <p className="auth-error" role="alert">{error}</p>}
         <button type="submit" className="auth-submit" disabled={pending}>
           {pending ? '잠시만요…' : isSignup ? '회원가입' : '로그인'}
         </button>

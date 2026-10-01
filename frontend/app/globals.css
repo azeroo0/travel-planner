@@ -153,9 +153,13 @@ td.best { color: var(--ac); font-weight: 700; }
 .scrap-pagination { margin-top: 18px; }
 
 /* intro (스플래시 → 로그인) */
+.intro { padding: min(9dvh, 80px) 20px 16px; }
 .intro.is-splash { overflow: hidden; }
+.intro-body { width: 100%; display: flex; flex-direction: column; align-items: center; }
 .intro-logo { width: 100%; display: flex; justify-content: center; transition: transform .7s cubic-bezier(.2, .7, .2, 1); }
-.intro.is-splash .intro-logo { transform: translateY(calc(50dvh - 140px)) scale(1.2); }
+.intro.is-splash .intro-logo { transform: translateY(var(--shift, 0px)) scale(1.2); }
+.intro, .auth { --auth-gap: 24px; } /* 설명 문구 ↔ 이메일, 비밀번호 ↔ 로그인 버튼 간격 */
+.intro .intro-text p { margin-bottom: var(--auth-gap); }
 .intro-text { transition: opacity .6s ease .35s, transform .6s ease .35s; }
 .intro.is-splash .intro-text { opacity: 0; transform: translateY(8px); }
 .intro-form { width: 100%; transition: opacity .6s ease .6s, transform .6s cubic-bezier(.2, .7, .2, 1) .6s; }
@@ -168,13 +172,15 @@ td.best { color: var(--ac); font-weight: 700; }
 .auth-field input { height: 46px; padding: 0 16px; border: 0; border-radius: 23px; background: var(--fill); outline: none; }
 .auth-field input:focus-visible { box-shadow: 0 0 0 2px var(--ac); }
 .auth-field small { font-size: 12px; color: var(--faint); padding-left: 4px; }
-.auth-error { margin: 0; min-height: 20px; font-size: 13px; font-weight: 500; color: var(--sub); text-align: center; }
-.auth-submit { height: 46px; border: 0; border-radius: 23px; background: var(--ac); color: #fff; font-weight: 700; cursor: pointer; }
+.auth .auth-error { margin: 0; font-size: 13px; font-weight: 500; color: var(--sub); text-align: center; }
+.auth-submit { margin-top: calc(var(--auth-gap) - 12px); /* 폼 gap 12px 포함해 --auth-gap */ height: 46px; border: 0; border-radius: 23px; background: var(--ac); color: #fff; font-weight: 700; cursor: pointer; }
 .auth-submit:disabled { opacity: .5; cursor: default; }
-.auth-switch { margin: 14px 0 0; text-align: center; font-size: 14px; color: var(--sub); }
+.auth .auth-switch { margin: 20px 0 0; text-align: center; font-size: 14px; color: var(--sub); }
 .auth-switch button { border: 0; background: none; padding: 0; color: var(--ac); font-weight: 600; cursor: pointer; }
-.auth-guest { display: block; margin: 18px auto 0; border: 0; background: none; padding: 4px; font-size: 12px; color: var(--faint); text-decoration: underline; cursor: pointer; }
+.auth-guest { display: block; margin: 24px auto 0; border: 0; background: none; padding: 4px; font-size: 12px; color: var(--faint); text-decoration: underline; cursor: pointer; }
 .auth-switch button:disabled, .auth-guest:disabled { cursor: default; }
+.login-page { display: flex; flex-direction: column; }
+.login-body { padding-top: min(9dvh, 80px); }
 .compare .auth { margin-top: 16px; }
 
 @media (prefers-reduced-motion: reduce) {

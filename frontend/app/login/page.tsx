@@ -16,10 +16,12 @@ export default function LoginPage() {
   }, [router]);
 
   if (!ready) return null;
-  return <div className="compare">
+  return <div className="compare login-page">
     <Link href="/">← 홈으로</Link>
-    <h1>로그인</h1>
-    <p className="muted">로그인하면 스크랩 같은 기능을 쓸 수 있어요.</p>
-    <AuthForm onSuccess={() => router.replace('/')} />
+    <div className="login-body">
+      <h1>로그인</h1>
+      <p className="muted">로그인하면 스크랩 같은 기능을 쓸 수 있어요.</p>
+      <AuthForm onSuccess={() => router.replace('/')} />
+    </div>
   </div>;
 }
