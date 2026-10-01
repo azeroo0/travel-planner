@@ -38,3 +38,4 @@ db/*.xlsx
 # 학습·평가 실행 산출물과 로컬 압축 백업
 artifacts/
 evaluation/runs/
+seed.sql
