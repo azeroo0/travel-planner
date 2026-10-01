@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/logo.png" alt="어디갈건호?" width="260" />
+<img src="https://raw.githubusercontent.com/sunub/travel-planner/main/frontend/public/logo.png" alt="어디갈건호?" width="260" />
 
 # 🐵 어디갈건호? (TripFit)
 
@@ -42,13 +42,13 @@
 
 | 시작 · 자연어로 조건 입력 | 대화 · 동행·걷기·원하는 점 질문 | 추천 · 조건에 맞는 장소와 적합도 |
 | :---: | :---: | :---: |
-| <img src="docs/images/service-01-start.png" width="220" /> | <img src="docs/images/service-02-chat.png" width="220" /> | <img src="docs/images/service-03-recommend.png" width="220" /> |
+| <img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/service-01-start.png" width="220" /> | <img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/service-02-chat.png" width="220" /> | <img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/service-03-recommend.png" width="220" /> |
 
 ### 2️⃣ 리뷰 분석과 근거 문장을 함께 보여준다
 
 | 장소 상세 · aspect별 감성 비율과 건수 | 근거 리뷰 · 모델이 뽑은 evidence를 원문에서 강조 |
 | :---: | :---: |
-| <img src="docs/images/service-04-detail.png" width="220" /> | <img src="docs/images/service-05-evidence.png" width="420" /> |
+| <img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/service-04-detail.png" width="220" /> | <img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/service-05-evidence.png" width="420" /> |
 
 ### 3️⃣ 모델은 이런 결과를 만든다
 
@@ -303,11 +303,11 @@ uv run python -m evaluation.run_pipeline --config evaluation/config.json --out e
 
 <table align="center">
   <tr>
-    <td align="center" width="190"><img src="docs/images/member1.png" width="110" /><br /><b>최정민</b><br /><sub>팀장</sub></td>
-    <td align="center" width="190"><img src="docs/images/member2.png" width="110" /><br /><b>이건호</b><br /><sub>Backend</sub></td>
-    <td align="center" width="190"><img src="docs/images/member3.png" width="110" /><br /><b>김나경</b><br /><sub>Frontend</sub></td>
-    <td align="center" width="190"><img src="docs/images/member4.png" width="110" /><br /><b>윤아영</b><br /><sub>Frontend</sub></td>
-    <td align="center" width="190"><img src="docs/images/member5.png" width="110" /><br /><b>남상기</b><br /><sub>Backend</sub></td>
+    <td align="center" width="190"><img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/member1.png" width="110" /><br /><b>최정민</b><br /><sub>팀장</sub></td>
+    <td align="center" width="190"><img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/member2.png" width="110" /><br /><b>이건호</b><br /><sub>Backend</sub></td>
+    <td align="center" width="190"><img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/member3.png" width="110" /><br /><b>김나경</b><br /><sub>Frontend</sub></td>
+    <td align="center" width="190"><img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/member4.png" width="110" /><br /><b>윤아영</b><br /><sub>Frontend</sub></td>
+    <td align="center" width="190"><img src="https://raw.githubusercontent.com/sunub/travel-planner/main/docs/images/member5.png" width="110" /><br /><b>남상기</b><br /><sub>Backend</sub></td>
   </tr>
 </table>
 
