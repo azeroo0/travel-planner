@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import ChatInput from './ChatInput';
+import ScrapLink from './ScrapLink';
 import { getRecommendations } from '@/lib/api';
 import { parseConditions } from '@/lib/conditions';
 import type { FitResult } from '@/lib/api-types';
@@ -80,6 +81,7 @@ export default function Chat() {
           <Image src="/avatar.png" alt="" width={30} height={30} className="avatar" />
           <h1>어디갈건호?</h1>
         </Link>
+        <ScrapLink />
         <button type="button" className="reset" onClick={() => setMessages([GREETING])} disabled={loading}>초기화</button>
       </header>
       <div className="thread" ref={thread}>

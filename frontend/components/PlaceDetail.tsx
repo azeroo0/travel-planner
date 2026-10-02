@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import EvidenceList from './EvidenceList';
+import ScrapButton from './ScrapButton';
+import ScrapLink from './ScrapLink';
 import type { PlaceDetail as Place, PlaceProfile } from '@/lib/api-types';
 
 const categoryName = { hotel: '숙소', restaurant: '식당', attraction: '관광지' };
@@ -10,7 +12,10 @@ export default function PlaceDetail({ place, profile }: { place: Place; profile:
       <header className="appbar center">
         <Link href="/chat" aria-label="뒤로">←</Link>
         <h1>{place.name}</h1>
-        <span />
+        <div className="appbar-actions">
+          <ScrapLink />
+          <ScrapButton placeId={place.place_id} placeName={place.name} />
+        </div>
       </header>
       <div className="detail">
         <section className="hd">
