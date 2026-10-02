@@ -1,3 +1,4 @@
+import { clearSession, getToken, redirectToLogin } from './auth';
 import type { AnalysisResult, AnalyzeRequest, EvidenceReview, ExperimentMetricRow, FitResult, Place, Page, RecommendationQuery } from './api-types';
 
 export class ApiError extends Error {
@@ -6,13 +7,31 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+/** auth: true면 저장된 토큰을 Bearer로 붙인다. 토큰이 없거나 401을 받으면 세션을 지우고 로그인 화면으로 보낸다. */
+export type ApiInit = RequestInit & { auth?: boolean };
+
+function unauthorized(): ApiError {
+  clearSession();
+  redirectToLogin();
+  return new ApiError('로그인이 필요해요', 401, 'UNAUTHORIZED');
+}
+
+export async function apiRequest<T>(path: string, { auth, ...init }: ApiInit = {}): Promise<T> {
+  if (auth) {
+    const token = getToken();
+    if (!token) throw unauthorized();
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    init.headers = headers;
+  }
   let response: Response;
   try {
     response = await fetch(`/api/v1${path}`, { cache: 'no-store', ...init });
   } catch {
     throw new ApiError('API 서버에 연결할 수 없습니다. 서버 주소와 실행 상태를 확인해 주세요.', 0);
   }
+  if (auth && response.status === 401) throw unauthorized();
+  if (response.status === 204) return undefined as T;
   const body = await response.json().catch(() => null);
   if (!response.ok) {
     const error = body?.error;

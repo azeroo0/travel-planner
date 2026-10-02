@@ -72,6 +72,19 @@ export function logout() {
 /** 로그인이 필요한 기능(스크랩 등)이 호출하는 가드. 로그인 상태가 아니면 false. */
 export const isLoggedIn = () => getSession() !== null;
 
+/** next는 "/"로 시작하는 내부 경로만 허용한다. "//"·"/\\"·제어문자는 브라우저가 외부 주소로 해석할 수 있어 "/"로 처리한다. */
+export function safeNext(next: string | null | undefined): string {
+  return next && /^\/(?![/\\])[^\u0000-\u001f]*$/.test(next) ? next : '/';
+}
+
+export const loginHref = (next: string) => `/login?next=${encodeURIComponent(next)}`;
+
+/** 현재 경로를 next로 달아 로그인 화면으로 보낸다. 이미 로그인 화면이면 그대로 둔다. */
+export function redirectToLogin() {
+  if (typeof window === 'undefined' || location.pathname === '/login') return;
+  location.assign(loginHref(location.pathname + location.search));
+}
+
 const json = (body: unknown): RequestInit => ({
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },

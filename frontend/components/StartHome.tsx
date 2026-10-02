@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import ChatInput from '@/components/ChatInput';
+import ScrapLink from '@/components/ScrapLink';
 
 const examples = [
   { q: '부모님과 가고, 걷기는 적게, 바다는 보고 싶고 계단은 피하고 싶어요', sub: '부모님 · 바다 · 계단 피하기' },
@@ -20,6 +21,7 @@ export default function StartHome({ guest, onLogin, onLogout }: Props) {
           <Image src="/avatar.png" alt="" width={30} height={30} className="avatar" />
           <h1>어디갈건호?</h1>
         </div>
+        <ScrapLink />
         <button type="button" className="reset" onClick={guest ? onLogin : onLogout}>{guest ? '로그인' : '로그아웃'}</button>
       </header>
       <div className="start">
